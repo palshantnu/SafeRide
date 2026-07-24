@@ -1,0 +1,89 @@
+const db = require('../config/db');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+exports.register = async (req, res) => {
+  const { name, email,password,role } = req.body;
+  const hash = await bcrypt.hash(String(password), 10);
+  await db.query(
+    "INSERT INTO users (name, email, password,role) VALUES (?, ?, ?,?)",
+    [name, email,hash,role]
+  );
+  res.json({ message: "User Registered" });
+};
+
+exports.login = async (req, res) => {
+  const { email, password } = req.body;
+
+  const [user] = await db.query("SELECT * FROM users WHERE email=?", [email]);
+
+  if (user.length === 0)
+    return res.status(400).json({ msg: "User not found" });
+
+  const isMatch = await bcrypt.compare(password, user[0].password);
+
+  if (!isMatch)
+    return res.status(400).json({ msg: "Wrong password" });
+
+  const token = jwt.sign({ id: user[0].id }, process.env.JWT_SECRET);
+
+  res.json({ token });
+};
+
+exports.getUsers = async (req, res) => {
+  const [users] = await db.query("SELECT id,name,email FROM users");
+  res.json(users);
+};
+
+exports.sendOTP = async (req, res) => {
+  const { mobile } = req.body;
+  if (!mobile) {
+    return res.status(400).json({ msg: "Mobile required" });
+  }
+
+  const otp = Math.floor(1000 + Math.random() * 9000);
+  const [user] = await db.query("SELECT * FROM users WHERE mobile=?", [mobile]);
+
+  if (user.length === 0) {
+    await db.query("INSERT INTO users (mobile, otp) VALUES (?, ?)", [mobile, otp]);
+  } else {
+    await db.query("UPDATE users SET otp=? WHERE mobile=?", [otp, mobile]);
+  }
+
+  res.json({
+    message: "OTP sent",
+    otp 
+  });
+};
+
+exports.verifyOTP = async (req, res) => {
+  const { mobile, otp, fcm_token } = req.body;
+
+  const [user] = await db.query(
+    "SELECT * FROM users WHERE mobile=? AND otp=?",
+    [mobile, otp]
+  );
+
+  if (user.length === 0) {
+    return res.status(400).json({ msg: "Invalid OTP" });
+  }
+
+  // OTP verified — only now persist the fcm_token for this user
+  if (fcm_token) {
+    await db.query("UPDATE users SET fcm_token=? WHERE id=?", [
+      fcm_token,
+      user[0].id,
+    ]);
+  }
+
+  const token = jwt.sign(
+    { id: user[0].id, role: user[0].role },
+    process.env.JWT_SECRET
+  );
+
+  res.json({
+    message: "Login success",
+    token,
+    role: user[0].role
+  });
+};

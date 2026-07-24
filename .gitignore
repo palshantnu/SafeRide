@@ -1,0 +1,22 @@
+# Node
+**/node_modules/
+
+# Environment
+**/.env
+
+# Firebase / Google Service Account
+**/serviceAccountKey.json
+**/serviceAccountKey.json.json
+
+# Uploads
+backend/backendapi/uploads/
+
+# React Build
+frontend/**/dist/
+frontend/**/build/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
