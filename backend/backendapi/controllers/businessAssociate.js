@@ -919,6 +919,7 @@ exports.getBACurrentBookings = async (req, res) => {
                 b.driver_status,
                 b.created_at,
                 b.bussinessassociate_id,
+                 b.total_fare,
                 b.service_id,
 
                 s.title       AS service_name,
