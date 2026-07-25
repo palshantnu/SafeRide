@@ -39,7 +39,7 @@ exports.verifyAndRegisterBA = async (req, res) => {
     const connection = await db.getConnection();
 
     try {
-        const { ba_mobile, otp, ba_name, company_name, services, fcm_token } = req.body;
+        const { ba_mobile, otp, ba_name, company_name, services, fcm_token, pincode } = req.body;
 
         if (!ba_mobile) {
             return res.status(400).json({ message: "Mobile number is required" });
@@ -116,8 +116,8 @@ exports.verifyAndRegisterBA = async (req, res) => {
             }
 
             const [result] = await connection.query(
-                "INSERT INTO business_associates (ba_name, ba_mobile, company_name, wallet, fcm_token) VALUES (?, ?, ?, ?, ?)",
-                [ba_name, ba_mobile, company_name?.trim() || null, BA_SIGNUP_GIFT, fcm_token || null]
+                "INSERT INTO business_associates (ba_name, ba_mobile, company_name, pincode, wallet, fcm_token) VALUES (?, ?, ?, ?, ?, ?)",
+                [ba_name, ba_mobile, company_name?.trim() || null, pincode?.trim() || null, BA_SIGNUP_GIFT, fcm_token || null]
             );
 
             ba_id = result.insertId;
@@ -132,7 +132,7 @@ exports.verifyAndRegisterBA = async (req, res) => {
                 );
             }
 
-            ba_data = { id: ba_id, ba_name, ba_mobile, company_name: company_name?.trim() || null, wallet: BA_SIGNUP_GIFT };
+            ba_data = { id: ba_id, ba_name, ba_mobile, pincode: pincode?.trim() || null, company_name: company_name?.trim() || null, wallet: BA_SIGNUP_GIFT };
 
         } else {
             ba_data = exist[0];
