@@ -491,14 +491,10 @@ exports.getDriversByBA = async (req, res) => {
 exports.getBABookings = async (req, res) => {
     try {
         const ba_id = req.user.id;
-        const { status } = req.query;
+        // const { status } = req.query;
 
-        let statusClause = `b.status = 'SEARCHING'`;
-       const params = [
-    ba_id, // bs.ba_id
-    ba_id, // b.bussinessassociate_id
-    ba_id  // booking_rejections.ba_id
-];
+        // let statusClause = `b.status = 'SEARCHING'`;
+const params = [ba_id, ba_id];
 
         // if (status) {
         //     statusClause = `b.status = ?`;
@@ -552,7 +548,7 @@ exports.getBABookings = async (req, res) => {
             LEFT JOIN services s    ON s.id  = b.service_id
             LEFT JOIN plans p       ON p.id  = b.plan_id
             INNER JOIN ba_services bs ON bs.service_id = b.service_id AND bs.ba_id = ?
-            WHERE b.bussinessassociate_id = ?
+           WHERE b.status = 'SEARCHING'
               AND b.service_id != 1
               AND b.id NOT IN (
                   SELECT booking_id FROM booking_rejections WHERE ba_id = ?
