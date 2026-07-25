@@ -530,6 +530,8 @@ exports.getBABookings = async (req, res) => {
                 b.driver_status,
                 b.bussinessassociate_id,
                 b.created_at,
+                b.user_rated,
+                b.user_review,
 
                 s.title  AS service_name,
 
