@@ -494,14 +494,18 @@ exports.getBABookings = async (req, res) => {
         const { status } = req.query;
 
         let statusClause = `b.status = 'SEARCHING'`;
-        const params = [ba_id];
+       const params = [
+    ba_id, // bs.ba_id
+    ba_id, // b.bussinessassociate_id
+    ba_id  // booking_rejections.ba_id
+];
 
-        if (status) {
-            statusClause = `b.status = ?`;
-            params.push(status);
-        }
+        // if (status) {
+        //     statusClause = `b.status = ?`;
+        //     params.push(status);
+        // }
 
-        params.push(ba_id);
+        // params.push(ba_id);
 
         const [bookings] = await db.query(`
             SELECT
@@ -546,7 +550,7 @@ exports.getBABookings = async (req, res) => {
             LEFT JOIN services s    ON s.id  = b.service_id
             LEFT JOIN plans p       ON p.id  = b.plan_id
             INNER JOIN ba_services bs ON bs.service_id = b.service_id AND bs.ba_id = ?
-            WHERE ${statusClause}
+            WHERE b.bussinessassociate_id = ?
               AND b.service_id != 1
               AND b.id NOT IN (
                   SELECT booking_id FROM booking_rejections WHERE ba_id = ?
