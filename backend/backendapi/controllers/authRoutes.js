@@ -106,6 +106,7 @@ router.get("/ba/services", verifyToken, baController.getBAServices);
 router.post("/ba/create/driver", verifyToken, baController.createDriverByBA);
 router.get("/ba/driverlist/", verifyToken, baController.getDriversByBA);
 router.get("/ba/bookings", verifyToken, baController.getBABookings);
+router.get("/ba/my-bookings", verifyToken, baController.getMyBABookings);
 router.post("/ba/assign-driver", verifyToken, baController.assignDriverToBooking);
 router.post("/ba/acceptbooking", verifyToken, baController.baacceptBooking);
 router.get("/bussinessassociates/list", baController.getBusinessAssociates);

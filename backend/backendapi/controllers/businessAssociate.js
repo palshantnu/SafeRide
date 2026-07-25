@@ -573,6 +573,91 @@ const params = [ba_id, ba_id];
     }
 };
 
+exports.getMyBABookings = async (req, res) => {
+    try {
+        const ba_id = req.user.id;
+        const { status } = req.query;
+
+        let whereClause = "b.bussinessassociate_id = ?";
+        const params = [ba_id];
+
+        if (status) {
+            whereClause += " AND b.status = ?";
+            params.push(status);
+        }
+
+        const [bookings] = await db.query(`
+            SELECT
+                b.id,
+                b.booking_id,
+                b.service_id,
+                b.booking_type,
+                b.pickup_city,
+                b.drop_city,
+                b.to_city,
+                b.pickup_address,
+                b.drop_address,
+                b.person,
+                b.schedule_date,
+                b.balance_amount,
+                b.distance,
+                b.total_fare,
+                b.actual_fare,
+                b.platform_fee,
+                b.status,
+                b.user_status,
+                b.driver_status,
+                b.bussinessassociate_id,
+                b.created_at,
+                b.user_rated,
+                b.user_review,
+
+                s.title AS service_name,
+
+                p.plan_name,
+                p.plan_price,
+                p.plan_hour,
+                p.plan_km,
+
+                u.name AS user_name,
+                u.mobile AS user_mobile,
+
+                d.full_name AS driver_name,
+                d.phone AS driver_phone
+
+            FROM bookings b
+            LEFT JOIN users u
+                ON u.id = b.user_id
+            LEFT JOIN drivers d
+                ON d.id = b.driver_id
+            LEFT JOIN services s
+                ON s.id = b.service_id
+            LEFT JOIN plans p
+                ON p.id = b.plan_id
+
+            WHERE ${whereClause}
+              AND b.service_id != 1
+
+            ORDER BY b.id DESC
+        `, params);
+
+        return res.json({
+            status: true,
+            message: "My bookings fetched successfully",
+            total: bookings.length,
+            data: bookings
+        });
+
+    } catch (err) {
+        console.error("getMyBABookings Error:", err);
+        return res.status(500).json({
+            status: false,
+            message: "Something went wrong",
+            error: err.message
+        });
+    }
+};
+
 exports.baRejectBooking = async (req, res) => {
     try {
         const ba_id = req.user.id;
