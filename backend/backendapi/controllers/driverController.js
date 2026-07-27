@@ -419,12 +419,12 @@ exports.addDriverProfile = async (req, res) => {
 
         const driver_profile = req.file ? req.file.filename : null;
 
-        if (!driver_id || !vehicle_type || !vehicle_number) {
-            return res.status(400).json({
-                status: false,
-                message: "driver_id, vehicle_type and vehicle_number are required"
-            });
-        }
+        // if (!driver_id || !vehicle_type || !vehicle_number) {
+        //     return res.status(400).json({
+        //         status: false,
+        //         message: "driver_id, vehicle_type and vehicle_number are required"
+        //     });
+        // }
         const [existing] = await db.query(
             `SELECT id, driver_profile FROM driver_profiles WHERE driver_id = ?`,
             [driver_id]
