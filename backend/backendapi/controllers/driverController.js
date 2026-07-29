@@ -445,7 +445,7 @@ exports.addDriverProfile = async (req, res) => {
                  WHERE driver_id = ?`,
                 [
                     driver_profile || existing[0].driver_profile,
-                    vehicle_type,
+                   vehicle_type || null,
                     vehicle_make || null,
                     vehicle_model || null,
                     vehicle_year || null,

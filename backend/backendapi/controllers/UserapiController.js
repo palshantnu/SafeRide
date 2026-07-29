@@ -1515,14 +1515,25 @@ exports.cancelBooking = async (req, res) => {
                     const table   = role === 'DRIVER' ? 'drivers' : 'users';
                     const walletOwnerId = role === 'DRIVER' ? booking.driver_id : booking.user_id;
                     const [[owner]] = await db.query(`SELECT wallet FROM ${table} WHERE id = ?`, [walletOwnerId]);
+                    // const balance = parseFloat(owner?.wallet || 0);
+                    // walletDeducted = Math.min(cancellationFee, Math.max(0, balance));
+                    // if (walletDeducted > 0) {
+                    //     await db.query(
+                    //         `UPDATE ${table} SET wallet = wallet - ? WHERE id = ?`,
+                    //         [walletDeducted, walletOwnerId]
+                    //     );
+                    // }
                     const balance = parseFloat(owner?.wallet || 0);
-                    walletDeducted = Math.min(cancellationFee, Math.max(0, balance));
-                    if (walletDeducted > 0) {
-                        await db.query(
-                            `UPDATE ${table} SET wallet = wallet - ? WHERE id = ?`,
-                            [walletDeducted, walletOwnerId]
-                        );
-                    }
+
+// Always deduct full cancellation fee
+walletDeducted = cancellationFee;
+
+await db.query(
+    `UPDATE ${table}
+     SET wallet = wallet - ?
+     WHERE id = ?`,
+    [walletDeducted, walletOwnerId]
+);
                 }
             }
         }
