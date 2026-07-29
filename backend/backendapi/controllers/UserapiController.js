@@ -354,7 +354,9 @@ exports.userBookingHistory = async (req, res) => {
                 dp.vehicle_model,
                 dp.vehicle_color,
                 dp.vehicle_number,
-                s.title AS service_name
+                s.title AS service_name,
+                dr.rating AS user_rating,
+dr.review AS user_review
 
             FROM bookings b
 
@@ -368,7 +370,10 @@ exports.userBookingHistory = async (req, res) => {
                 ON dp.driver_id = b.driver_id
             LEFT JOIN services s
                 ON s.id = b.service_id
-
+            LEFT JOIN driver_reviews dr
+                ON dr.booking_id = b.id
+                AND dr.user_id = b.user_id
+                AND dr.driver_id = b.driver_id
             WHERE b.user_id = ?
 
             ORDER BY b.id DESC
@@ -1351,18 +1356,18 @@ exports.getUserRechargeList = async (req, res) => {
             [user_id]
         );
 
-        return res.json({
-            status: true,
-            message: "Recharge history fetched successfully",
-            wallet_balance: userRow ? parseFloat(userRow.wallet || 0) : 0,
-            pagination: {
-                total,
-                page: pageNum,
-                limit: limitNum,
-                total_pages: Math.ceil(total / limitNum)
-            },
-            data: rows
-        });
+    return res.json({
+    status: true,
+    message: "Recharge history fetched successfully",
+    wallet_balance: parseFloat(userRow?.wallet || 0),
+    pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        total_pages: Math.ceil(total / limitNum)
+    },
+    data: rows
+});
 
     } catch (error) {
         console.error("getUserRechargeList error:", error.message);
