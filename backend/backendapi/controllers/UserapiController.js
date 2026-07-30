@@ -7,6 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 
 require("dotenv").config();
 const SECRET = process.env.JWT_SECRET;
+const { notifyUser, notifyDriver } = require("../services/notification");
 
 exports.payToken = async (req, res) => {
     try {
@@ -1557,6 +1558,23 @@ await db.query(
                 cancellation_fee = ?
             WHERE id = ?
         `, [cancelled_by, cancel_reason || null, cancellationFee, booking.id]);
+
+        // send push notification to the other party
+        try {
+            if (role === 'USER' && booking.driver_id) {
+                await notifyDriver(booking.driver_id, "Booking cancelled",
+                    `User cancelled booking ${booking.booking_id}`,
+                    { type: "BOOKING_CANCELLED", booking_id: booking.booking_id, cancelled_by: 'USER' }
+                );
+            } else if (role === 'DRIVER' && booking.user_id) {
+                await notifyUser(booking.user_id, "Booking cancelled",
+                    `Driver cancelled booking ${booking.booking_id}`,
+                    { type: "BOOKING_CANCELLED", booking_id: booking.booking_id, cancelled_by: 'DRIVER' }
+                );
+            }
+        } catch (nerr) {
+            console.error("notification send error:", nerr.message);
+        }
 
         return res.json({
             status: true,
