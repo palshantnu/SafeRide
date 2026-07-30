@@ -27,6 +27,7 @@ exports.payToken = async (req, res) => {
                 b.booking_id,
                 b.status,
                 b.user_id,
+                b.driver_id,
                 b.plan_id,
                 p.token_price
             FROM bookings b
@@ -99,6 +100,18 @@ exports.payToken = async (req, res) => {
             SET ${updateFields}
             WHERE id = ?
         `, values);
+
+        // notify assigned driver that token was paid
+        try {
+            if (booking.driver_id) {
+                await notifyDriver(booking.driver_id, "Token paid",
+                    `User paid token for booking ${booking.booking_id}`,
+                    { type: "TOKEN_PAID", booking_id: booking.booking_id }
+                );
+            }
+        } catch (nerr) {
+            console.error("notification send error:", nerr.message);
+        }
 
         return res.json({
             status: true,
@@ -193,6 +206,18 @@ exports.payBalance = async (req, res) => {
                 driver_status = 'ARRIVED'
             WHERE id = ?
         `, [balance_amount, mode, booking.id]);
+
+        // notify assigned driver that balance was paid
+        try {
+            if (booking.driver_id) {
+                await notifyDriver(booking.driver_id, "Balance paid",
+                    `User paid remaining balance for booking ${booking.booking_id}`,
+                    { type: "BALANCE_PAID", booking_id: booking.booking_id }
+                );
+            }
+        } catch (nerr) {
+            console.error("notification send error:", nerr.message);
+        }
 
         return res.json({
             status: true,

@@ -1,7 +1,7 @@
 const db = require("../config/db");
 const { v4: uuidv4 } = require("uuid");
 const moment = require("moment");
-const { notifyUser, notifyDriversByService } = require("../services/notification");
+const { notifyUser, notifyDriversByService, notifyDriver } = require("../services/notification");
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────────
 const genId  = (prefix) => prefix + uuidv4().slice(0, 10).toUpperCase();
@@ -144,6 +144,18 @@ exports.payToken = async (req, res) => {
             [booking.id]
         );
 
+        // notify assigned driver that token was paid
+        try {
+            if (booking.driver_id) {
+                await notifyDriver(booking.driver_id, "Token paid",
+                    `User paid token for on-spot booking ${booking_no}`,
+                    { type: "TOKEN_PAID", booking_no }
+                );
+            }
+        } catch (nerr) {
+            console.error("notification send error:", nerr.message);
+        }
+
         return res.json({
             status: true,
             message: "Token paid. Booking confirmed.",
@@ -170,7 +182,7 @@ exports.payFull = async (req, res) => {
             : "CASH";
 
         const [[booking]] = await db.execute(
-            `SELECT id, status, otp, balance_amount, balance_paid FROM onspot_bookings
+            `SELECT id, status, otp, balance_amount, balance_paid, driver_id FROM onspot_bookings
              WHERE booking_no = ? AND user_id = ?`,
             [booking_no, user_id]
         );
@@ -187,6 +199,18 @@ exports.payFull = async (req, res) => {
             `UPDATE onspot_bookings SET balance_paid = 1, payment_mode = ?, updated_at = NOW() WHERE id = ?`,
             [mode, booking.id]
         );
+
+        // notify assigned driver that full payment was made
+        try {
+            if (booking.driver_id) {
+                await notifyDriver(booking.driver_id, "Full payment recorded",
+                    `User paid full amount for on-spot booking ${booking_no}`,
+                    { type: "BALANCE_PAID", booking_no }
+                );
+            }
+        } catch (nerr) {
+            console.error("notification send error:", nerr.message);
+        }
 
         return res.json({
             status: true,

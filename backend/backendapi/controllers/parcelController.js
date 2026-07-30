@@ -1,6 +1,6 @@
 const db = require("../config/db");
 const { v4: uuidv4 } = require("uuid");
-const { notifyUser, notifyDriversByService } = require("../services/notification");
+const { notifyUser, notifyDriversByService, notifyDriver } = require("../services/notification");
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────────
 const genId  = (prefix) => prefix + uuidv4().slice(0, 10).toUpperCase();
@@ -237,6 +237,18 @@ exports.payToken = async (req, res) => {
             WHERE id = ?
         `, [booking.id]);
 
+        // notify assigned driver that token was paid
+        try {
+            if (booking.driver_id) {
+                await notifyDriver(booking.driver_id, "Token paid",
+                    `User paid token for parcel ${parcel_booking_id}`,
+                    { type: "TOKEN_PAID", parcel_booking_id }
+                );
+            }
+        } catch (nerr) {
+            console.error("notification send error:", nerr.message);
+        }
+
         return res.json({
             status: true,
             message: "Token paid online. Booking confirmed.",
@@ -273,6 +285,18 @@ exports.payBalance = async (req, res) => {
             `UPDATE parcel_bookings SET balance_paid = 1, payment_mode = 'ONLINE', updated_at = NOW() WHERE id = ?`,
             [booking.id]
         );
+
+        // notify assigned driver that balance was paid
+        try {
+            if (booking.driver_id) {
+                await notifyDriver(booking.driver_id, "Balance paid",
+                    `User paid remaining balance for parcel ${parcel_booking_id}`,
+                    { type: "BALANCE_PAID", parcel_booking_id }
+                );
+            }
+        } catch (nerr) {
+            console.error("notification send error:", nerr.message);
+        }
 
         return res.json({
             status: true,

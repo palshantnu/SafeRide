@@ -754,7 +754,7 @@ exports.payFullFare = async (req, res) => {
             : "CASH";
 
         const [[booking]] = await db.execute(`
-            SELECT sb.*, st.status AS trip_status
+            SELECT sb.*, st.status AS trip_status, st.assigned_driver_id, st.creator_type, st.creator_id
             FROM sigi_bookings sb
             JOIN sigi_trips st ON st.id = sb.trip_id
             WHERE sb.booking_id = ? AND sb.user_id = ?
@@ -776,6 +776,19 @@ exports.payFullFare = async (req, res) => {
             SET balance_paid = 1, payment_mode = ?, status = 'CONFIRMED', updated_at = NOW()
             WHERE id = ?
         `, [mode, booking.id]);
+
+            // notify the trip's operating captain (driver)
+            try {
+                const tripDriverId = booking.creator_type === 'DRIVER' ? booking.creator_id : booking.assigned_driver_id;
+                if (tripDriverId) {
+                    await notifyDriver(tripDriverId, "Full fare paid",
+                        `Passenger paid full fare for booking ${booking_id}`,
+                        { type: "BALANCE_PAID", booking_id }
+                    );
+                }
+            } catch (nerr) {
+                console.error("notification send error:", nerr.message);
+            }
 
         return res.json({
             status: true,
