@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Privacy Policy — Sigi Ride</title>
+  <meta name="description" content="Sigi Ride Privacy Policy"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --pink:#f0047f;
+      --pink-light:#fce4f3;
+      --pink-mid:#fbb6e2;
+      --blue:#1877f2;
+      --blue-light:#e8f1fe;
+      --blue-mid:#bfdbfe;
+      --green:#5cb85c;
+      --green-light:#edfaed;
+      --green-mid:#bbf7bb;
+      --gray-50:#fafafa;
+      --gray-100:#f3f4f6;
+      --gray-200:#e5e7eb;
+      --gray-500:#6b7280;
+      --gray-700:#374151;
+      --gray-900:#111827;
+    }
+    html{scroll-behavior:smooth}
+    body{background:#fff;color:var(--gray-900);font-family:'Inter',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+
+    /* ══ NAV ══ */
+    nav{
+      background:#fff;
+      border-bottom:2px solid var(--pink-light);
+      position:sticky;top:0;z-index:100;
+      box-shadow:0 2px 16px rgba(240,4,127,.08);
+    }
+    .nav-wrap{max-width:1120px;margin:0 auto;padding:0 24px;height:70px;display:flex;align-items:center;justify-content:space-between}
+    .logo{display:flex;align-items:center;gap:12px;text-decoration:none}
+    .logo img{height:48px;width:auto}
+    .nav-badge{
+      display:inline-flex;align-items:center;gap:6px;
+      background:linear-gradient(135deg,var(--pink-light),var(--blue-light));
+      border:1.5px solid var(--pink-mid);
+      color:var(--pink);padding:7px 18px;border-radius:999px;
+      font-size:12px;font-weight:700;letter-spacing:.4px;
+    }
+
+    /* ══ HERO ══ */
+    .hero{
+      background:linear-gradient(135deg,#fff5fb 0%,#f0f7ff 50%,#f0fff0 100%);
+      border-bottom:2px solid var(--gray-100);
+      padding:64px 24px 72px;text-align:center;
+      position:relative;overflow:hidden;
+    }
+    /* decorative circles */
+    .hero::before{content:'';position:absolute;width:320px;height:320px;border-radius:50%;background:rgba(240,4,127,.06);top:-100px;left:-80px;pointer-events:none}
+    .hero::after{content:'';position:absolute;width:260px;height:260px;border-radius:50%;background:rgba(24,119,242,.06);bottom:-80px;right:-60px;pointer-events:none}
+    .hero-inner{position:relative;z-index:1;max-width:680px;margin:0 auto}
+    .hero-logo{height:90px;width:auto;margin-bottom:24px;filter:drop-shadow(0 6px 18px rgba(240,4,127,.18))}
+    .hero-chip{
+      display:inline-flex;align-items:center;gap:8px;
+      background:#fff;border:2px solid var(--pink-mid);
+      color:var(--pink);padding:6px 18px;border-radius:999px;
+      font-size:12px;font-weight:700;letter-spacing:.4px;margin-bottom:20px;
+      box-shadow:0 2px 12px rgba(240,4,127,.12);
+    }
+    .hero-chip span{width:8px;height:8px;border-radius:50%;background:var(--pink);animation:blink 2s infinite;display:block}
+    @keyframes blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+    .hero h1{
+      font-size:clamp(34px,6vw,58px);font-weight:900;letter-spacing:-1px;
+      line-height:1.1;margin-bottom:16px;
+      background:linear-gradient(135deg,var(--pink) 0%,var(--blue) 60%,var(--green) 100%);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+    .hero p{font-size:16px;color:var(--gray-500);line-height:1.75;margin-bottom:16px}
+    .hero-date{
+      display:inline-flex;gap:12px;align-items:center;
+      background:#fff;border:1.5px solid var(--gray-200);
+      border-radius:999px;padding:6px 18px;font-size:13px;color:var(--gray-500);
+      box-shadow:0 1px 6px rgba(0,0,0,.05);
+    }
+    .hero-date b{color:var(--gray-900)}
+    .hero-sep{width:1px;height:14px;background:var(--gray-200)}
+
+    /* ══ APPS STRIP ══ */
+    .apps-strip{background:#fff;border-bottom:2px solid var(--gray-100);box-shadow:0 3px 16px rgba(0,0,0,.05)}
+    .apps-inner{
+      max-width:1120px;margin:0 auto;padding:16px 24px;
+      display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;
+    }
+    .apps-lbl{font-size:12px;font-weight:700;color:var(--gray-500);text-transform:uppercase;letter-spacing:.6px}
+    .vdiv{width:1px;height:28px;background:var(--gray-200)}
+    .app-btn{
+      display:inline-flex;align-items:center;gap:10px;
+      padding:11px 22px;border-radius:16px;text-decoration:none;font-weight:700;
+      transition:transform .15s,box-shadow .15s;
+    }
+    .app-btn:hover{transform:translateY(-2px)}
+    .app-btn svg{width:22px;height:22px;flex-shrink:0}
+    .app-btn-t{display:flex;flex-direction:column;line-height:1.15}
+    .app-btn-s{font-size:9px;font-weight:600;opacity:.75;text-transform:uppercase;letter-spacing:.5px}
+    .app-btn-n{font-size:14px;font-weight:800}
+    .btn-user{
+      background:linear-gradient(135deg,var(--blue),#0ea5e9);color:#fff;
+      box-shadow:0 4px 16px rgba(24,119,242,.3);
+    }
+    .btn-user:hover{box-shadow:0 8px 24px rgba(24,119,242,.4)}
+    .btn-captain{
+      background:linear-gradient(135deg,var(--pink),#e879f9);color:#fff;
+      box-shadow:0 4px 16px rgba(240,4,127,.3);
+    }
+    .btn-captain:hover{box-shadow:0 8px 24px rgba(240,4,127,.4)}
+
+    /* ══ PAGE LAYOUT ══ */
+    .page{max-width:1120px;margin:0 auto;padding:48px 24px 90px;display:flex;flex-direction:column;gap:22px}
+
+    /* ══ INTRO BOX ══ */
+    .intro-box{
+      background:linear-gradient(135deg,#fff5fb,#f0f7ff);
+      border:2px solid var(--pink-mid);border-radius:20px;
+      padding:22px 26px;display:flex;align-items:flex-start;gap:16px;
+    }
+    .intro-ic{
+      width:46px;height:46px;flex-shrink:0;border-radius:13px;
+      background:linear-gradient(135deg,var(--pink),var(--blue));
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 4px 14px rgba(240,4,127,.25);
+    }
+    .intro-ic svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .intro-box p{font-size:14.5px;color:var(--gray-700);line-height:1.8}
+    .intro-box a{color:var(--blue);font-weight:600;text-decoration:none}
+
+    /* ══ SECTION CARDS ══ */
+    .section{background:#fff;border:2px solid var(--gray-100);border-radius:22px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.04);transition:box-shadow .2s,border-color .2s}
+    .section:hover{box-shadow:0 8px 32px rgba(0,0,0,.08);border-color:var(--gray-200)}
+
+    .sec-head{
+      padding:18px 26px;display:flex;align-items:center;gap:14px;
+      border-bottom:2px solid var(--gray-100);
+    }
+    .sec-icon{width:48px;height:48px;flex-shrink:0;border-radius:14px;display:flex;align-items:center;justify-content:center}
+    .sec-icon svg{width:22px;height:22px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+    /* icon themes */
+    .ic-pink{background:var(--pink-light)} .ic-pink svg{stroke:var(--pink)}
+    .ic-blue{background:var(--blue-light)} .ic-blue svg{stroke:var(--blue)}
+    .ic-green{background:var(--green-light)} .ic-green svg{stroke:var(--green)}
+    .ic-purple{background:#f5f3ff} .ic-purple svg{stroke:#7c3aed}
+    .ic-amber{background:#fffbeb} .ic-amber svg{stroke:#d97706}
+    .ic-teal{background:#f0fdfa} .ic-teal svg{stroke:#0d9488}
+
+    .sec-title{font-size:16px;font-weight:800;color:var(--gray-900)}
+    .sec-num{
+      margin-left:auto;font-size:20px;font-weight:900;
+      background:linear-gradient(135deg,var(--pink),var(--blue));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+      opacity:.35;
+    }
+
+    /* items */
+    .item{padding:18px 26px;border-bottom:1px solid var(--gray-100);display:flex;gap:14px;align-items:flex-start}
+    .item:last-child{border-bottom:none}
+    .item-bar{width:4px;border-radius:4px;flex-shrink:0;min-height:40px;margin-top:3px}
+    .bar-pink{background:linear-gradient(180deg,var(--pink),#e879f9)}
+    .bar-blue{background:linear-gradient(180deg,var(--blue),#38bdf8)}
+    .bar-green{background:linear-gradient(180deg,var(--green),#34d399)}
+    .bar-purple{background:linear-gradient(180deg,#7c3aed,#a78bfa)}
+    .bar-amber{background:linear-gradient(180deg,#d97706,#fbbf24)}
+    .bar-teal{background:linear-gradient(180deg,#0d9488,#2dd4bf)}
+    .item-label{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+    .lbl-pink{color:var(--pink)} .lbl-blue{color:var(--blue)} .lbl-green{color:var(--green)}
+    .lbl-purple{color:#7c3aed} .lbl-amber{color:#d97706} .lbl-teal{color:#0d9488}
+    .item-text{font-size:14px;color:var(--gray-500);line-height:1.75}
+    .item-text a{color:var(--blue);font-weight:600;text-decoration:none}
+
+    /* ══ ALERT BOXES ══ */
+    .alert{display:flex;gap:14px;align-items:flex-start;border-radius:20px;padding:22px 26px}
+    .alert-warn{background:linear-gradient(135deg,#fffbeb,#fef3c7);border:2px solid #fde68a}
+    .alert-ok{background:linear-gradient(135deg,var(--green-light),#d1fae5);border:2px solid var(--green-mid)}
+    .alert-em{width:44px;height:44px;flex-shrink:0;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px}
+    .alert-warn .alert-em{background:#fef08a}
+    .alert-ok .alert-em{background:var(--green-mid)}
+    .alert h3{font-size:15px;font-weight:800;margin-bottom:6px}
+    .alert-warn h3{color:#92400e} .alert-ok h3{color:#14532d}
+    .alert p{font-size:14px;line-height:1.75}
+    .alert-warn p{color:#78350f} .alert-ok p{color:#166534}
+    .alert a{font-weight:600;text-decoration:none}
+    .alert-warn a{color:#d97706} .alert-ok a{color:var(--green)}
+
+    /* ══ CTA ══ */
+    .cta{
+      border-radius:24px;padding:52px 32px;text-align:center;
+      background:linear-gradient(135deg,var(--pink) 0%,#e879f9 40%,var(--blue) 100%);
+      box-shadow:0 16px 48px rgba(240,4,127,.25);
+      position:relative;overflow:hidden;
+    }
+    .cta::before{content:'';position:absolute;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.08);top:-100px;right:-60px}
+    .cta::after{content:'';position:absolute;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.06);bottom:-60px;left:-40px}
+    .cta-in{position:relative;z-index:1}
+    .cta-em{width:64px;height:64px;background:rgba(255,255,255,.2);border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:28px;backdrop-filter:blur(8px)}
+    .cta h2{font-size:28px;font-weight:900;color:#fff;margin-bottom:10px;letter-spacing:-.3px}
+    .cta p{font-size:15px;color:rgba(255,255,255,.82);max-width:440px;margin:0 auto 28px;line-height:1.7}
+    .cta-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+    .cta-btn-w{background:#fff;color:var(--pink);padding:13px 30px;border-radius:14px;text-decoration:none;font-size:14px;font-weight:800;box-shadow:0 4px 18px rgba(0,0,0,.15);transition:transform .15s}
+    .cta-btn-w:hover{transform:translateY(-2px)}
+    .cta-btn-g{background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.45);color:#fff;padding:13px 30px;border-radius:14px;text-decoration:none;font-size:14px;font-weight:700;backdrop-filter:blur(6px);transition:background .2s}
+    .cta-btn-g:hover{background:rgba(255,255,255,.28)}
+
+    /* ══ FOOTER ══ */
+    footer{background:var(--gray-900);padding:40px 24px;text-align:center}
+    .ft-logo{display:flex;align-items:center;justify-content:center;margin-bottom:6px}
+    .ft-logo img{height:42px;width:auto;filter:brightness(0) invert(1) opacity(.85)}
+    .ft-links{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin:14px 0 10px}
+    .ft-links a{color:#6b7280;font-size:13px;text-decoration:none;transition:color .2s}
+    .ft-links a:hover{color:var(--pink)}
+    .ft-copy{font-size:12px;color:#4b5563}
+
+    @media(max-width:640px){
+      .sec-head,.item,.intro-box,.alert,.cta{padding:16px 18px}
+      .hero h1{letter-spacing:-.5px}
+      .vdiv{display:none}
+      .apps-inner{gap:10px}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ NAV ══ -->
+<nav>
+  <div class="nav-wrap">
+    <a href="/" class="logo">
+      <img src="/logo.png" alt="Sigi Ride" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+      <span style="display:none;align-items:center;gap:8px;font-size:20px;font-weight:900;background:linear-gradient(135deg,#f0047f,#1877f2);-webkit-background-clip:text;-webkit-text-fill-color:transparent">
+        Sigi Ride
+      </span>
+    </a>
+    <div class="nav-badge">
+      🔒 Privacy Policy
+    </div>
+  </div>
+</nav>
+
+<!-- ══ HERO ══ -->
+<div class="hero">
+  <div class="hero-inner">
+    <img src="/logo.png" alt="Sigi Ride" class="hero-logo"
+      onerror="this.style.display='none'" />
+    <div class="hero-chip"><span></span> Data Protection &amp; Privacy</div>
+    <h1>Privacy Policy</h1>
+    <p>We believe privacy is a fundamental right. Here's exactly how we handle your data — transparently and responsibly.</p>
+    <div class="hero-date">
+      <span>Effective: <b>January 1, 2025</b></span>
+      <div class="hero-sep"></div>
+      <span>Updated: <b>June 1, 2026</b></span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APPS STRIP ══ -->
+<div class="apps-strip">
+  <div class="apps-inner">
+    <span class="apps-lbl">📱 Download Our Apps</span>
+    <div class="vdiv"></div>
+
+    <a href="https://play.google.com/store/apps/details?id=com.sigiride.user" target="_blank" class="app-btn btn-user">
+      <svg viewBox="0 0 24 24">
+        <path d="M3.18 23.76c.34.19.73.19 1.06 0l11.34-6.54-2.53-2.53L3.18 23.76z" fill="rgba(255,255,255,.9)"/>
+        <path d="M22.11 10.26l-2.85-1.65-2.86 2.86 2.86 2.86 2.87-1.65a1.6 1.6 0 0 0 0-2.42z" fill="rgba(255,255,255,.75)"/>
+        <path d="M3.18.24a1.56 1.56 0 0 0-.18.75v22.02c0 .27.07.52.18.75l.1.09 12.34-12.34v-.02L3.28.15l-.1.09z" fill="white"/>
+        <path d="M13.05 7.27L3.18.24l-.1-.09 12.53 12.54-2.56-5.42z" fill="rgba(255,255,255,.85)"/>
+        <path d="M13.05 16.73l2.56-5.42L3.18 23.76l9.87-7.03z" fill="rgba(255,255,255,.85)"/>
+      </svg>
+      <div class="app-btn-t">
+        <span class="app-btn-s">Get it on Google Play</span>
+        <span class="app-btn-n">User App</span>
+      </div>
+    </a>
+
+    <a href="https://play.google.com/store/apps/details?id=com.sigiride.captain" target="_blank" class="app-btn btn-captain">
+      <svg viewBox="0 0 24 24">
+        <path d="M3.18 23.76c.34.19.73.19 1.06 0l11.34-6.54-2.53-2.53L3.18 23.76z" fill="rgba(255,255,255,.9)"/>
+        <path d="M22.11 10.26l-2.85-1.65-2.86 2.86 2.86 2.86 2.87-1.65a1.6 1.6 0 0 0 0-2.42z" fill="rgba(255,255,255,.75)"/>
+        <path d="M3.18.24a1.56 1.56 0 0 0-.18.75v22.02c0 .27.07.52.18.75l.1.09 12.34-12.34v-.02L3.28.15l-.1.09z" fill="white"/>
+        <path d="M13.05 7.27L3.18.24l-.1-.09 12.53 12.54-2.56-5.42z" fill="rgba(255,255,255,.85)"/>
+        <path d="M13.05 16.73l2.56-5.42L3.18 23.76l9.87-7.03z" fill="rgba(255,255,255,.85)"/>
+      </svg>
+      <div class="app-btn-t">
+        <span class="app-btn-s">Get it on Google Play</span>
+        <span class="app-btn-n">Captain App</span>
+      </div>
+    </a>
+  </div>
+</div>
+
+<!-- ══ CONTENT ══ -->
+<div class="page">
+
+  <!-- Intro -->
+  <div class="intro-box">
+    <div class="intro-ic">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <p>This Privacy Policy applies to Sigi Ride's mobile application, <a href="https://sigiride.com">sigiride.com</a>, and all related services. By using our Platform you agree to the practices described here. Please read carefully before using our services.</p>
+  </div>
+
+  <!-- 01 -->
+  <div class="section">
+    <div class="sec-head">
+      <div class="sec-icon ic-pink">
+        <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </div>
+      <span class="sec-title">Information We Collect</span>
+      <span class="sec-num">01</span>
+    </div>
+    <div class="item"><div class="item-bar bar-pink"></div><div><div class="item-label lbl-pink">Personal Information</div><p class="item-text">Name, phone number, email, and profile photo at registration. Drivers also provide vehicle details, driving license, and government ID documents.</p></div></div>
+    <div class="item"><div class="item-bar bar-pink"></div><div><div class="item-label lbl-pink">Location Data</div><p class="item-text">Real-time GPS location from both riders and drivers during trips for accurate navigation. Background location may be collected with your permission.</p></div></div>
+    <div class="item"><div class="item-bar bar-pink"></div><div><div class="item-label lbl-pink">Transaction &amp; Payment Data</div><p class="item-text">Transaction history, wallet balance, and withdrawal records. Card details are processed by secure payment partners — never stored on our servers.</p></div></div>
+    <div class="item"><div class="item-bar bar-pink"></div><div><div class="item-label lbl-pink">Device &amp; Usage Data</div><p class="item-text">Device identifiers, OS version, app version, IP address, and usage patterns to improve performance and experience.</p></div></div>
+  </div>
+
+  <!-- 02 -->
+  <div class="section">
+    <div class="sec-head">
+      <div class="sec-icon ic-blue">
+        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      </div>
+      <span class="sec-title">How We Use Your Information</span>
+      <span class="sec-num">02</span>
+    </div>
+    <div class="item"><div class="item-bar bar-blue"></div><div><div class="item-label lbl-blue">Service Delivery</div><p class="item-text">Match riders with drivers, process payments, send booking confirmations and receipts, and provide real-time support.</p></div></div>
+    <div class="item"><div class="item-bar bar-blue"></div><div><div class="item-label lbl-blue">Safety &amp; Security</div><p class="item-text">Verify driver identity, detect fraud, resolve disputes, and ensure the safety of all platform users.</p></div></div>
+    <div class="item"><div class="item-bar bar-blue"></div><div><div class="item-label lbl-blue">Platform Improvement</div><p class="item-text">Anonymized data helps analyze ride patterns, optimize routing, and develop new features tailored to user needs.</p></div></div>
+    <div class="item"><div class="item-bar bar-blue"></div><div><div class="item-label lbl-blue">Communications</div><p class="item-text">Ride updates, offers, safety alerts, and policy changes via SMS, email, or push notifications.</p></div></div>
+  </div>
+
+  <!-- 03 -->
+  <div class="section">
+    <div class="sec-head">
+      <div class="sec-icon ic-green">
+        <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      </div>
+      <span class="sec-title">Information Sharing</span>
+      <span class="sec-num">03</span>
+    </div>
+    <div class="item"><div class="item-bar bar-green"></div><div><div class="item-label lbl-green">Between Riders &amp; Drivers</div><p class="item-text">Limited info (name, photo, vehicle details, phone) is shared between rider and driver only to facilitate the trip.</p></div></div>
+    <div class="item"><div class="item-bar bar-green"></div><div><div class="item-label lbl-green">Business Associates</div><p class="item-text">Authorized associates may access driver performance data within their scope per their agreement with Sigi Ride.</p></div></div>
+    <div class="item"><div class="item-bar bar-green"></div><div><div class="item-label lbl-green">Legal Requirements</div><p class="item-text">We may disclose information to comply with applicable laws or lawful government requests.</p></div></div>
+    <div class="item"><div class="item-bar bar-green"></div><div><div class="item-label lbl-green">We Never Sell Your Data</div><p class="item-text">Sigi Ride does not sell, rent, or trade your personal information to third parties for marketing — ever.</p></div></div>
+  </div>
+
+  <!-- 04 -->
+  <div class="section">
+    <div class="sec-head">
+      <div class="sec-icon ic-pink">
+        <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <span class="sec-title">Data Security</span>
+      <span class="sec-num">04</span>
+    </div>
+    <div class="item"><div class="item-bar bar-pink"></div><div><div class="item-label lbl-pink">Encryption</div><p class="item-text">All transmitted data uses TLS/SSL encryption. Sensitive data at rest is protected with AES-256 encryption.</p></div></div>
+    <div class="item"><div class="item-bar bar-pink"></div><div><div class="item-label lbl-pink">Access Controls</div><p class="item-text">Data access is restricted on a need-to-know basis. All staff undergo background checks and security training.</p></div></div>
+    <div class="item"><div class="item-bar bar-pink"></div><div><div class="item-label lbl-pink">Incident Response</div><p class="item-text">In case of a breach, we notify affected users and authorities within the timeframe required by law.</p></div></div>
+  </div>
+
+  <!-- 05 -->
+  <div class="section">
+    <div class="sec-head">
+      <div class="sec-icon ic-blue">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
+      </div>
+      <span class="sec-title">Your Rights &amp; Choices</span>
+      <span class="sec-num">05</span>
+    </div>
+    <div class="item"><div class="item-bar bar-blue"></div><div><div class="item-label lbl-blue">Access &amp; Correction</div><p class="item-text">View and update your personal information anytime through the Sigi Ride app under Profile Settings.</p></div></div>
+    <div class="item"><div class="item-bar bar-blue"></div><div><div class="item-label lbl-blue">Data Deletion</div><p class="item-text">Request account deletion by contacting <a href="mailto:privacy@sigiride.com">privacy@sigiride.com</a>. Some data may be retained for legal compliance.</p></div></div>
+    <div class="item"><div class="item-bar bar-blue"></div><div><div class="item-label lbl-blue">Opt-Out of Marketing</div><p class="item-text">Update notification preferences in the app, or click 'unsubscribe' in any email to opt out at any time.</p></div></div>
+    <div class="item"><div class="item-bar bar-blue"></div><div><div class="item-label lbl-blue">Location Permissions</div><p class="item-text">Revoke location access in your device settings anytime, though it may affect some app features.</p></div></div>
+  </div>
+
+  <!-- 06 -->
+  <div class="section">
+    <div class="sec-head">
+      <div class="sec-icon ic-green">
+        <svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+      </div>
+      <span class="sec-title">Cookies &amp; Tracking</span>
+      <span class="sec-num">06</span>
+    </div>
+    <div class="item"><div class="item-bar bar-green"></div><div><div class="item-label lbl-green">Cookies</div><p class="item-text">Our website uses cookies to remember preferences and analyze traffic. Control cookies through your browser settings.</p></div></div>
+    <div class="item"><div class="item-bar bar-green"></div><div><div class="item-label lbl-green">Analytics</div><p class="item-text">Anonymized analytics data is used solely to improve our services and understand user interactions.</p></div></div>
+  </div>
+
+  <!-- Warn -->
+  <div class="alert alert-warn">
+    <div class="alert-em">⚠️</div>
+    <div>
+      <h3>Children's Privacy</h3>
+      <p>Sigi Ride is not directed to individuals under 18. We don't knowingly collect data from minors. If a minor has provided data, email us at <a href="mailto:privacy@sigiride.com">privacy@sigiride.com</a> and we'll delete it promptly.</p>
+    </div>
+  </div>
+
+  <!-- Changes -->
+  <div class="alert alert-ok">
+    <div class="alert-em">📋</div>
+    <div>
+      <h3>Changes to This Policy</h3>
+      <p>We may update this policy periodically. Significant changes will be communicated via the app or email. Continued use after changes constitutes acceptance of the updated policy.</p>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta">
+    <div class="cta-in">
+      <div class="cta-em">📬</div>
+      <h2>Have Questions?</h2>
+      <p>Our Data Protection team is happy to help with any questions, concerns, or data requests you may have.</p>
+      <div class="cta-btns">
+        <a href="mailto:privacy@sigiride.com" class="cta-btn-w">privacy@sigiride.com</a>
+        <a href="https://sigiride.com" class="cta-btn-g">sigiride.com</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ FOOTER ══ -->
+<footer>
+  <div class="ft-logo">
+    <img src="/logo.png" alt="Sigi Ride" style="height:40px;filter:brightness(0) invert(1) opacity(.8)"
+      onerror="this.outerHTML='<span style=\'font-size:18px;font-weight:900;color:#fff\'>Sigi Ride</span>'" />
+  </div>
+  <div class="ft-links">
+    <a href="/privacy-policy.html">Privacy Policy</a>
+    <a href="mailto:privacy@sigiride.com">Contact Us</a>
+    <a href="https://play.google.com/store/apps/details?id=com.sigiride.user" target="_blank">User App</a>
+    <a href="https://play.google.com/store/apps/details?id=com.sigiride.captain" target="_blank">Captain App</a>
+  </div>
+  <p class="ft-copy">&copy; <span id="yr"></span> Sigi Ride. All rights reserved.</p>
+</footer>
+
+<script>document.getElementById('yr').textContent=new Date().getFullYear()</script>
+</body>
+</html>

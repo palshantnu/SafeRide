@@ -22,7 +22,7 @@ frontend/**/build/
 .DS_Store
 
 # Ignore SafeRideProject folder
-SafeRideProject/
+SafeRideProject/backendapi
 
 # Ignore all ZIP files
 *saferideproject.zip

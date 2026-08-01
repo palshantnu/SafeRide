@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root -h 127.0.0.1 -e 'SHOW DATABASES;')"
+    ]
+  }
+}
