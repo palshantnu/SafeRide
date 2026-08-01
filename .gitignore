@@ -20,9 +20,3 @@ frontend/**/build/
 
 # OS
 .DS_Store
-
-# Ignore SafeRideProject folder
-SafeRideProject/
-
-# Ignore all ZIP files
-*saferideproject.zip
