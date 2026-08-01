@@ -96,7 +96,7 @@ exports.createBookingRequest = async (req, res) => {
                     distance, total_fare, platform_fee,
                     person, schedule_date, otp, created_at
                 ) VALUES (?, ?, ?, ?, ?, 'SEARCHING', 'SEARCHING', 'SEARCHING', 'NONE',
-                          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             `, [
                 booking_id, user_id, service_id, sub_service_id,
                 formattedDate ? '1' : '0',
