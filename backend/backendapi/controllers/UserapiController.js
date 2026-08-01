@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 require("dotenv").config();
 const SECRET = process.env.JWT_SECRET;
 const { notifyUser, notifyDriver } = require("../services/notification");
+const { createAdminNotification } = require('../services/adminNotification');
 
 exports.payToken = async (req, res) => {
     try {
@@ -1583,6 +1584,15 @@ await db.query(
                 cancellation_fee = ?
             WHERE id = ?
         `, [cancelled_by, cancel_reason || null, cancellationFee, booking.id]);
+
+        await createAdminNotification({
+          type: 'booking_cancel',
+          source_table: 'bookings',
+          source_id: booking.id,
+          message: `Booking ${booking.booking_id} cancelled by ${cancelled_by}`,
+          sub: `Cancelled by ${cancelled_by}`,
+          payload: { booking_id: booking.booking_id, cancelled_by }
+        });
 
         // send push notification to the other party
         try {

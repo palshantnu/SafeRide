@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { createAdminNotification } = require('../services/adminNotification');
 
 exports.register = async (req, res) => {
   const { name, email,password,role } = req.body;
@@ -45,7 +46,15 @@ exports.sendOTP = async (req, res) => {
   const [user] = await db.query("SELECT * FROM users WHERE mobile=?", [mobile]);
 
   if (user.length === 0) {
-    await db.query("INSERT INTO users (mobile, otp) VALUES (?, ?)", [mobile, otp]);
+    const [result] = await db.query("INSERT INTO users (mobile, otp) VALUES (?, ?)", [mobile, otp]);
+    await createAdminNotification({
+      type: 'new_user',
+      source_table: 'users',
+      source_id: result.insertId,
+      message: `New user signup: ${mobile}`,
+      sub: 'New user registration',
+      payload: { mobile }
+    });
   } else {
     await db.query("UPDATE users SET otp=? WHERE mobile=?", [otp, mobile]);
   }

@@ -12,6 +12,7 @@ const landingController = require("../controllers/landingController");
 const popupController = require("../controllers/popupController");
 const contactController = require("../controllers/contactController");
 const notificationController = require("../controllers/notificationController");
+const adminNotificationController = require("../controllers/adminNotificationController");
 const ratingController = require("../controllers/ratingController");
 const staffController = require("../controllers/adminStaffController");
 const authMiddleware = require('../middleware/authMiddleware');
@@ -384,6 +385,7 @@ router.post('/admin/notifications/:id/send', notificationController.sendNotifica
 router.put('/admin/notifications/:id', uploadNotification.single('image'), notificationController.updateNotification);
 router.patch('/admin/notifications/:id/status', notificationController.toggleNotificationStatus);
 router.delete('/admin/notifications/:id', notificationController.deleteNotification);
+router.get('/admin/admin-notifications', verifyToken, adminNotificationController.getAdminNotifications);
 
 //-------------------------------------------------Driver Rating & Review---------------------------------------------------//
 router.post('/user/driver/rating', verifyToken, ratingController.submitDriverReview);   // user rates the captain (ride)

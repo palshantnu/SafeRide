@@ -2,6 +2,7 @@ const db = require("../config/db");
 const { v4: uuidv4 } = require('uuid');
 const moment = require('moment');
 const { notifyDriversByService } = require("../services/notification");
+const { createAdminNotification } = require('../services/adminNotification');
 
 exports.createBookingRequest = async (req, res) => {
     try {
@@ -86,7 +87,7 @@ exports.createBookingRequest = async (req, res) => {
                 : accessFeeCfg;
             const totalFare   = Math.round(rideFare + accessFee + platformFee);  // round off (114.50 → 115)
 
-            await db.execute(`
+            const [result] = await db.execute(`
                 INSERT INTO bookings (
                     booking_id, user_id, service_id, sub_service_id,
                     booking_type, status, user_status, driver_status, cancelled_by,
@@ -95,7 +96,7 @@ exports.createBookingRequest = async (req, res) => {
                     distance, total_fare, platform_fee,
                     person, schedule_date, otp, created_at
                 ) VALUES (?, ?, ?, ?, ?, 'SEARCHING', 'SEARCHING', 'SEARCHING', 'NONE',
-                          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             `, [
                 booking_id, user_id, service_id, sub_service_id,
                 formattedDate ? '1' : '0',
@@ -104,6 +105,14 @@ exports.createBookingRequest = async (req, res) => {
                 dist, totalFare.toFixed(2), platformFee.toFixed(2),
                 person, formattedDate, otp
             ]);
+            await createAdminNotification({
+              type: 'booking_new',
+              source_table: 'bookings',
+              source_id: result.insertId,
+              message: `New booking request ${booking_id}`,
+              sub: `${pickup_city} → ${drop_city || to_city || 'N/A'}`,
+              payload: { booking_id, service_id, sub_service_id }
+            });
 
             // notify all captains registered for this service/sub-service
             await notifyDriversByService(service_id, sub_service_id, "New booking request",
