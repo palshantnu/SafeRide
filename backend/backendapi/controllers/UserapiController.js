@@ -1672,6 +1672,15 @@ exports.createWithdrawalRequest = async (req, res) => {
             VALUES ('USER', ?, ?, ?, ?, ?, ?, ?, 'PENDING', NOW(), NOW())
         `, [user_id, parseFloat(amount), bank_name || null, account_number || null, ifsc_code || null, account_holder_name || null, upi_id || null]);
 
+        await createAdminNotification({
+          type: 'withdrawal_request',
+          source_table: 'withdrawal_requests',
+          source_id: null,
+          message: `User withdrawal request for ₹${amount}`,
+          sub: `Pending user payout`,
+          payload: { user_type: 'USER', user_id, amount: parseFloat(amount) }
+        });
+
         return res.json({ status: true, message: "Withdrawal request submitted successfully" });
 
     } catch (error) {

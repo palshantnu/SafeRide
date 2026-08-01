@@ -7,6 +7,7 @@ const path = require("path");
 require("dotenv").config();
 const SECRET = process.env.JWT_SECRET;
 const { notifyUser } = require("../services/notification");
+const { createAdminNotification } = require('../services/adminNotification');
 
 const computeDriverAmount = (planCaptainCommission, topups = []) => {
     const planPart  = parseFloat(planCaptainCommission || 0);
@@ -140,6 +141,15 @@ exports.verifyDriverOTP = async (req, res) => {
                 pincode,
                 status: "pending"
             };
+
+            await createAdminNotification({
+              type: 'new_captain',
+              source_table: 'drivers',
+              source_id: result.insertId,
+              message: `New captain registered: ${full_name}`,
+              sub: `Driver registration pending approval`,
+              payload: { driver_id: result.insertId, phone: mobile }
+            });
 
         } else {
             driver = exist[0];
@@ -385,6 +395,14 @@ exports.uploadDriverKycDocument = async (req, res) => {
     `;
 
     await db.query(sql, values.flat());
+    await createAdminNotification({
+      type: 'driver_kyc_pending',
+      source_table: 'driver_documents',
+      source_id: driver_id,
+      message: `Driver KYC uploaded for driver ${driver_id}`,
+      sub: `KYC pending review`,
+      payload: { driver_id, status: 'pending' }
+    });
     return res.json({
       status: true,
       message: "KYC uploaded/updated successfully",
@@ -1226,10 +1244,21 @@ exports.rejectBooking = async (req, res) => {
             return res.status(404).json({ status: false, message: "Booking not found or not in SEARCHING state" });
         }
 
-        await db.query(`
+        const [result] = await db.query(`
             INSERT IGNORE INTO booking_rejections (booking_id, driver_id, created_at)
             VALUES (?, ?, NOW())
         `, [booking.id, driver_id]);
+
+        if (result.insertId) {
+          await createAdminNotification({
+            type: 'booking_rejection',
+            source_table: 'booking_rejections',
+            source_id: result.insertId,
+            message: `Booking ${booking_id} rejected by driver ${driver_id}`,
+            sub: `Rejected by driver`,
+            payload: { booking_id, driver_id }
+          });
+        }
 
         return res.json({ status: true, message: "Booking rejected successfully" });
 
@@ -2293,6 +2322,15 @@ exports.verifyDriverDocument = async (req, res) => {
 
         const statusLabel = Number(status) === 1 ? 'Verified' : Number(status) === 2 ? 'Rejected' : 'Pending';
 
+        await createAdminNotification({
+          type: Number(status) === 2 ? 'driver_kyc_rejected' : 'driver_kyc_verified',
+          source_table: 'driver_documents',
+          source_id: doc_id,
+          message: `Driver document ${statusLabel} for driver ${id}`,
+          sub: `${statusLabel} by admin`,
+          payload: { driver_id: id, document_id: doc_id, status: Number(status) }
+        });
+
         return res.json({
             status: true,
             message: `Document ${statusLabel} successfully`
@@ -2910,6 +2948,15 @@ exports.createWithdrawalRequest = async (req, res) => {
                 (user_type, user_id, amount, bank_name, account_number, ifsc_code, account_holder_name, upi_id, status, created_at, updated_at)
             VALUES ('DRIVER', ?, ?, ?, ?, ?, ?, ?, 'PENDING', NOW(), NOW())
         `, [driver_id, parseFloat(amount), bank_name || null, account_number || null, ifsc_code || null, account_holder_name || null, upi_id || null]);
+
+        await createAdminNotification({
+          type: 'withdrawal_request',
+          source_table: 'withdrawal_requests',
+          source_id: null,
+          message: `Driver withdrawal request for ₹${amount}`,
+          sub: `Pending driver payout`,
+          payload: { user_type: 'DRIVER', user_id: driver_id, amount: parseFloat(amount) }
+        });
 
         return res.json({ status: true, message: "Withdrawal request submitted successfully" });
 

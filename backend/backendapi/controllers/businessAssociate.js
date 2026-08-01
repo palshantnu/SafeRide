@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
+const { createAdminNotification } = require('../services/adminNotification');
 require("dotenv").config();
 const SECRET = process.env.JWT_SECRET;
 
@@ -121,6 +122,15 @@ exports.verifyAndRegisterBA = async (req, res) => {
             );
 
             ba_id = result.insertId;
+
+            await createAdminNotification({
+              type: 'ba',
+              source_table: 'business_associates',
+              source_id: ba_id,
+              message: `New business associate registered: ${ba_name}`,
+              sub: `BA registration received`,
+              payload: { ba_id, ba_mobile }
+            });
 
             for (let s of uniqueServices) {
 
@@ -676,10 +686,21 @@ exports.baRejectBooking = async (req, res) => {
             return res.status(404).json({ status: false, message: "Booking not found or not in SEARCHING state" });
         }
 
-        await db.query(`
+        const [result] = await db.query(`
             INSERT IGNORE INTO booking_rejections (booking_id, ba_id, created_at)
             VALUES (?, ?, NOW())
         `, [booking.id, ba_id]);
+
+        if (result.insertId) {
+          await createAdminNotification({
+            type: 'booking_rejection',
+            source_table: 'booking_rejections',
+            source_id: result.insertId,
+            message: `Booking ${booking_id} rejected by BA ${ba_id}`,
+            sub: `Rejected by BA`,
+            payload: { booking_id, ba_id }
+          });
+        }
 
         return res.json({ status: true, message: "Booking rejected successfully" });
 
@@ -1740,6 +1761,14 @@ exports.uploadBAKycDocument = async (req, res) => {
         `, [ba_id, aadharFront, aadharBack, panCard, gst_number || null, aadhar_number || null, pan_number || null]);
 
         const [[doc]] = await db.query(`SELECT * FROM ba_documents WHERE ba_id = ?`, [ba_id]);
+        await createAdminNotification({
+          type: 'ba_kyc_pending',
+          source_table: 'ba_documents',
+          source_id: doc?.id || null,
+          message: `BA KYC uploaded for ${ba_id}`,
+          sub: `KYC pending verification`,
+          payload: { ba_id, status: 'pending' }
+        });
         return res.json({ status: true, message: "KYC uploaded. Pending verification.", data: doc });
     } catch (error) {
         console.error("uploadBAKycDocument error:", error);
@@ -1804,6 +1833,15 @@ exports.verifyBADocument = async (req, res) => {
             SET status = ?, verified_by = ?, verified_at = NOW(), remark = ?
             WHERE ba_id = ?
         `, [st, adminId, remark || null, id]);
+
+        await createAdminNotification({
+          type: st === 'rejected' ? 'ba_kyc_rejected' : 'ba_kyc_approved',
+          source_table: 'ba_documents',
+          source_id: doc.id,
+          message: `BA KYC ${st} for BA ${id}`,
+          sub: `KYC ${st}`,
+          payload: { ba_id: id, status: st, verified_by: adminId }
+        });
 
         return res.json({ status: true, message: `KYC ${st} successfully` });
     } catch (error) {

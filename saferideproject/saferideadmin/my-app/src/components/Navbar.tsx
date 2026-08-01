@@ -5,10 +5,7 @@ import {
   Menu, Search, Bell, X, User, Car, ShoppingBag,
   XCircle, Briefcase, AlertTriangle, ShieldCheck, Wallet, CheckCheck, Trash2,
 } from "lucide-react";
-import {
-  getAllUsers, getAllDrivers, getAllBookinghistory, getAllbussinessassociates,
-  getWithdrawalRequests, getBookingRejections, getAllDriverDocuments,
-} from "../services/api";
+import { getAdminNotifications } from "../services/api";
 import { usePermissions } from "../context/PermissionsContext";
 
 interface NavbarProps {
@@ -17,7 +14,22 @@ interface NavbarProps {
   setSearchQuery: (value: string) => void;
 }
 
-type NType = 'user' | 'captain' | 'booking_new' | 'booking_cancel' | 'ba' | 'ba_kyc_pending' | 'ba_kyc_rejected' | 'driver_kyc_pending' | 'driver_kyc_rejected' | 'booking_rejection' | 'withdrawal_request';
+type NType =
+  | 'user'
+  | 'new_user'
+  | 'captain'
+  | 'new_captain'
+  | 'booking_new'
+  | 'booking_cancel'
+  | 'ba'
+  | 'ba_kyc_pending'
+  | 'ba_kyc_rejected'
+  | 'ba_kyc_approved'
+  | 'driver_kyc_pending'
+  | 'driver_kyc_rejected'
+  | 'driver_kyc_verified'
+  | 'booking_rejection'
+  | 'withdrawal_request';
 
 interface NotificationItem {
   id: string;
@@ -29,14 +41,6 @@ interface NotificationItem {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function extractList(res: unknown): Record<string, unknown>[] {
-  const body = (res as { data: unknown })?.data;
-  if (Array.isArray(body)) return body;
-  const inner = (body as { data?: unknown })?.data;
-  if (Array.isArray(inner)) return inner;
-  return [];
-}
-
 const NOTIF_KEY = 'sr_admin_notifs_v1';
 const SEEN_KEY  = 'sr_admin_seen_v1';
 
@@ -56,28 +60,36 @@ function saveSeen(seen: Record<string, string[]>) {
 // Which list page each notification type links to.
 const TYPE_ROUTE: Record<NType, string> = {
   user:               '/UserList',
+  new_user:           '/UserList',
   captain:            '/Driverlist',
+  new_captain:        '/Driverlist',
   booking_new:        '/bookinghistory',
   booking_cancel:     '/bookinghistory',
   ba:                 '/Bussinessassociatelist',
   ba_kyc_pending:     '/Bussinessassociatelist',
   ba_kyc_rejected:    '/Bussinessassociatelist',
+  ba_kyc_approved:    '/Bussinessassociatelist',
   driver_kyc_pending: '/Driverlist',
   driver_kyc_rejected: '/Driverlist',
+  driver_kyc_verified:'/Driverlist',
   booking_rejection:  '/bookinghistory',
   withdrawal_request: '/withdrawal-requests',
 };
 
 const TYPE_META: Record<NType, { icon: ReactNode; bg: string; color: string; label: string }> = {
   user:               { icon: <User size={14} />,          bg: '#eff6ff', color: '#2563eb', label: 'New User'            },
+  new_user:           { icon: <User size={14} />,          bg: '#eff6ff', color: '#2563eb', label: 'New User'            },
   captain:            { icon: <Car size={14} />,           bg: '#f0fdf4', color: '#16a34a', label: 'New Captain'         },
+  new_captain:        { icon: <Car size={14} />,           bg: '#f0fdf4', color: '#16a34a', label: 'New Captain'         },
   booking_new:        { icon: <ShoppingBag size={14} />,   bg: '#eef2ff', color: '#6366f1', label: 'New Booking'         },
   booking_cancel:     { icon: <XCircle size={14} />,       bg: '#fff1f2', color: '#ef4444', label: 'Cancelled'           },
   ba:                 { icon: <Briefcase size={14} />,     bg: '#fffbeb', color: '#d97706', label: 'New Associate'       },
   ba_kyc_pending:     { icon: <ShieldCheck size={14} />,   bg: '#f8fafc', color: '#0f766e', label: 'KYC Pending'         },
   ba_kyc_rejected:    { icon: <AlertTriangle size={14} />, bg: '#fef2f2', color: '#b91c1c', label: 'KYC Rejected'        },
+  ba_kyc_approved:    { icon: <CheckCheck size={14} />,    bg: '#ecfdf5', color: '#166534', label: 'KYC Approved'        },
   driver_kyc_pending: { icon: <ShieldCheck size={14} />,   bg: '#eef2ff', color: '#1d4ed8', label: 'Driver KYC Pending'  },
   driver_kyc_rejected: { icon: <AlertTriangle size={14} />, bg: '#fef2f2', color: '#b91c1c', label: 'Driver KYC Rejected' },
+  driver_kyc_verified:{ icon: <CheckCheck size={14} />,    bg: '#ecfdf5', color: '#166534', label: 'Driver KYC Verified'  },
   booking_rejection:  { icon: <AlertTriangle size={14} />, bg: '#fff7ed', color: '#c2410c', label: 'Booking Rejected'    },
   withdrawal_request: { icon: <Wallet size={14} />,        bg: '#f0f9ff', color: '#0c4a6e', label: 'Payment Request'     },
 };
@@ -118,69 +130,37 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
   // ── Poll ──────────────────────────────────────────────────────────────────
   const poll = useCallback(async () => {
     try {
-      const [uRes, dRes, bRes, baRes, wRes, brRes, ddRes] = await Promise.allSettled([
-        getAllUsers(),
-        getAllDrivers(),
-        getAllBookinghistory({ limit: 1000 }),
-        getAllbussinessassociates(),
-        getWithdrawalRequests(),
-        getBookingRejections(),
-        getAllDriverDocuments(),
-      ]);
-
-      const users       = uRes.status    === 'fulfilled' ? extractList(uRes.value)    : [];
-      const drivers     = dRes.status    === 'fulfilled' ? extractList(dRes.value)    : [];
-      const bookings    = bRes.status    === 'fulfilled' ? extractList(bRes.value)    : [];
-      const bas         = baRes.status   === 'fulfilled' ? extractList(baRes.value)   : [];
-      const withdrawals = wRes.status   === 'fulfilled' ? extractList(wRes.value)   : [];
-      const rejections  = brRes.status   === 'fulfilled' ? extractList(brRes.value)   : [];
-      const docs        = ddRes.status   === 'fulfilled' ? extractList(ddRes.value)   : [];
+          const response = await getAdminNotifications();
+      const notifications = Array.isArray(response.data?.data)
+        ? response.data.data as Record<string, unknown>[]
+        : [];
 
       const seen  = seenRef.current;
       const fresh: NotificationItem[] = [];
       const now   = Date.now();
       const isInit = !initDone.current;
 
-      const process = (
-        key: string,
-        items: Record<string, unknown>[],
-        type: NType,
-        msg: (item: Record<string, unknown>) => string,
-        sub: (item: Record<string, unknown>) => string,
-        filter?: (item: Record<string, unknown>) => boolean,
-      ) => {
-        if (!seen[key]) seen[key] = new Set();
-        const list = filter ? items.filter(filter) : items;
-        list.forEach(item => {
-          const id = item.id as number | string;
-          const timestamp = (item.updated_at ?? item.created_at ?? item.rejected_at ?? item.kyc_updated_at ?? '') as string | number;
-          const eventKey = `${key}_${id}_${timestamp}`;
-          if (isInit) {
-            seen[key].add(eventKey);
-          } else if (!seen[key].has(eventKey)) {
-            seen[key].add(eventKey);
-            fresh.push({
-              id: `${eventKey}_${now}`,
-              type, message: msg(item), sub: sub(item),
-              time: now, read: false,
-            });
-          }
-        });
-      };
+      notifications.forEach((item) => {
+        const id = (item.id as number | string) ?? `${item.source_table}_${item.source_id}_${item.created_at}`;
+        const eventKey = `admin_notif_${id}`;
+        if (!seen.admin_notif) seen.admin_notif = new Set();
+        if (isInit) {
+          seen.admin_notif.add(eventKey);
+          return;
+        }
+        if (!seen.admin_notif.has(eventKey)) {
+          seen.admin_notif.add(eventKey);
+          fresh.push({
+            id: `${eventKey}_${now}`,
+            type: (item.type as NType) || 'user',
+            message: String(item.message || 'Notification'),
+            sub: String(item.sub || ''),
+            time: new Date(String(item.created_at)).getTime() || now,
+            read: false,
+          });
+        }
+      });
 
-      process('users',     users,      'user',              u => `${(u.name as string) || (u.mobile as string) || `User #${u.id}`} registered`,    () => 'New user registration');
-      process('captains',  drivers,    'captain',           d => `${(d.name as string) || (d.mobile as string) || `Captain #${d.id}`} registered`,  () => 'New captain registration');
-      process('bookings',  bookings,   'booking_new',       b => `Booking ${(b.booking_id as string) || `#${b.id}`}`, b => `${(b.service_name as string) || ''} · ${(b.pickup_city as string) || ''} → ${(b.drop_city as string) || ''}`);
-      process('cancelled', bookings,   'booking_cancel',    b => `Booking ${(b.booking_id as string) || `#${b.id}`} cancelled`, b => `Cancelled by ${(b.cancelled_by as string) || 'user'}`, b => (b.status as string) === 'CANCELLED');
-      process('ba',        bas,       'ba',                a => `${(a.ba_name as string) || (a.business_name as string) || `Associate #${a.id}`}`,     () => 'New business associate');
-      process('ba_kyc_pending', bas,  'ba_kyc_pending',   a => `${(a.ba_name as string) || (a.business_name as string) || `Associate #${a.id}`} submitted KYC`, a => `BA KYC pending verification`, a => ((a.kyc_status as string) || '').toLowerCase() === 'pending');
-      process('ba_kyc',    bas,       'ba_kyc_rejected',   a => `${(a.ba_name as string) || (a.business_name as string) || `Associate #${a.id}`} KYC rejected`, a => `KYC rejected for ${(a.ba_name as string) || (a.business_name as string) || `Associate #${a.id}`}`, a => ((a.kyc_status as string) || '').toLowerCase() === 'rejected');
-      process('driver_kyc', docs,     'driver_kyc_pending', d => `${(d.driver_name as string) || `Driver #${d.driver_id}`} uploaded ${((d.document_name as string) || (d.document_type as string) || 'document')}`, d => `Driver KYC pending review`, d => Number(d.status) === 0);
-      process('driver_kyc_rejected', docs, 'driver_kyc_rejected', d => `${(d.driver_name as string) || `Driver #${d.driver_id}`} KYC rejected`, d => `Driver KYC was rejected`, d => Number(d.status) === 2);
-      process('rejected',  rejections,'booking_rejection', r => `Booking ${(r.booking_ref as string) || `#${r.booking_id}`} rejected`, r => `Rejected by ${(r.rejected_by_type as string) || 'agent'}`,   () => true);
-      process('withdrawals', withdrawals, 'withdrawal_request', w => `Withdrawal request #${w.id}`, w => `${(w.user_type as string) === 'DRIVER' ? (w.driver_name as string || w.driver_mobile as string) : (w.user_name as string || w.user_mobile as string)} · ${(w.amount as string) || '₹0'}`, w => ((w.status as string) || '').toUpperCase() === 'PENDING');
-
-      // Flush seen to localStorage
       const flat: Record<string, number[]> = {};
       for (const k of Object.keys(seen)) flat[k] = Array.from(seen[k]);
       saveSeen(flat);
