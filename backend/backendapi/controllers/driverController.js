@@ -1765,6 +1765,9 @@ exports.completeRide = async (req, res) => {
         let finalFare    = parseFloat(booking.total_fare || 0);
         let finalDist    = parseFloat(booking.distance   || 0);
         let fareBreakdown = null;
+        // For in-city (service_id=1) we'll charge these fees to the driver's wallet
+        let accessFee = 0;
+        let platformFee = 0;
 
         // ── In-City (service_id=1): recalculate fare with actual_distance ──
         if (parseInt(booking.service_id) === 1 && actual_distance) {
@@ -1779,13 +1782,13 @@ exports.completeRide = async (req, res) => {
                 const fixedCharge = parseFloat(ss.fixed_charge || 0);
                 const fixedKm     = parseFloat(ss.fixed_charge_km || 0);
                 const perKm       = parseFloat(ss.charge_after_fixed_per_km || 0);
-                const platformFee = parseFloat(ss.platform_fee || 0);
+                platformFee       = parseFloat(ss.platform_fee || 0);
                 const chargeableKm = Math.round(finalDist);       // round distance to nearest km (6.7 → 7)
                 const extraKm     = Math.max(0, chargeableKm - fixedKm);
                 const rideFare    = fixedCharge + (extraKm * perKm);
                 // access_fee can be a flat amount OR a percentage of the ride fare
                 const accessFeeCfg = parseFloat(ss.access_fee || 0);
-                const accessFee    = (ss.access_fee_type === 'percent')
+                accessFee         = (ss.access_fee_type === 'percent')
                     ? Math.round(rideFare * accessFeeCfg) / 100
                     : accessFeeCfg;
                 finalFare         = Math.round(rideFare + accessFee + platformFee);  // round off (114.50 → 115)
@@ -1821,6 +1824,16 @@ exports.completeRide = async (req, res) => {
                     actual_distance = ?, actual_fare = ?, end_lat = ?, end_lng = ?
                 WHERE id = ?
             `, [finalDist, finalFare.toFixed(2), drop_lat, drop_lng, booking.id]);
+            // Deduct platform/access fees from driver's wallet for In-City bookings
+            try {
+                const feeToDeduct = parseFloat(accessFee || 0) + parseFloat(platformFee || 0);
+                if (feeToDeduct > 0) {
+                    await db.query(`UPDATE drivers SET wallet = wallet - ? WHERE id = ?`, [feeToDeduct, booking.driver_id]);
+                }
+            } catch (err) {
+                // do not block ride completion if deduction fails; log and proceed
+                console.error('Failed to deduct in-city fees from driver wallet:', err.message || err);
+            }
         } else {
             await db.query(`
                 UPDATE bookings SET
