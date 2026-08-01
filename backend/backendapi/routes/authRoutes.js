@@ -392,5 +392,8 @@ router.post('/parcel/rating', verifyToken, ratingController.submitParcelReview);
 router.get('/driver/reviews', verifyToken, ratingController.getMyDriverReviews);         // captain views own reviews
 router.get('/driver/reviews/:driver_id', ratingController.getDriverReviewsById);         // public: a captain's reviews
 
+router.get('/admin/booking-rejections', verifyToken, bookingController.getBookingRejections);
+router.get('/admin/driver-documents', verifyToken, driver.getAllDriverDocuments);
+
 
 module.exports = router;
