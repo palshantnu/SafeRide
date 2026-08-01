@@ -395,14 +395,19 @@ exports.uploadDriverKycDocument = async (req, res) => {
     `;
 
     await db.query(sql, values.flat());
+
+    const [[driver]] = await db.query(`SELECT full_name FROM drivers WHERE id = ?`, [driver_id]);
+    const driverName = driver?.full_name ? String(driver.full_name) : `ID ${driver_id}`;
+
     await createAdminNotification({
       type: 'driver_kyc_pending',
       source_table: 'driver_documents',
       source_id: driver_id,
-      message: `Driver KYC uploaded for driver ${driver_id}`,
+      message: `Driver KYC uploaded for ${driverName}`,
       sub: `KYC pending review`,
-      payload: { driver_id, status: 'pending' }
+      payload: { driver_id, driver_name: driverName, status: 'pending' }
     });
+
     return res.json({
       status: true,
       message: "KYC uploaded/updated successfully",
