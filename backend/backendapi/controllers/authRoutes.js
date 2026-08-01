@@ -128,6 +128,7 @@ router.patch ('/planstatus/:id/status',service.togglePlanStatus);
 
 //-----------------------------------------------------Admin_Api-----------------------------------------------------------------------------------//
 router.get('/all/bookinghistory', bookingController.getBookingHistory);
-
+router.get('/admin/booking-rejections', verifyToken, bookingController.getBookingRejections);
+router.get('/admin/driver-documents', verifyToken, driver.getAllDriverDocuments);
 
 module.exports = router;

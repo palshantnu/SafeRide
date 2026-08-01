@@ -1018,7 +1018,9 @@ exports.getBusinessAssociates = async (req, res) => {
                 ba.ba_mobile,
                 ba.status,
                 ba.created_at,
-                COALESCE(bd.status, 'not_uploaded') AS kyc_status
+                COALESCE(bd.status, 'not_uploaded') AS kyc_status,
+                bd.created_at AS kyc_created_at,
+                bd.updated_at AS kyc_updated_at
             FROM business_associates ba
             LEFT JOIN ba_documents bd ON bd.ba_id = ba.id
             ORDER BY ba.id DESC

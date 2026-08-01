@@ -416,6 +416,44 @@ exports.getWithdrawalRequests = async (req, res) => {
     }
 };
 
+exports.getBookingRejections = async (req, res) => {
+    try {
+        const [rows] = await db.execute(`
+            SELECT
+                br.id,
+                br.booking_id,
+                br.driver_id,
+                br.ba_id,
+                br.created_at AS rejected_at,
+                br.updated_at AS updated_at,
+                b.booking_id AS booking_ref,
+                b.service_id,
+                b.status AS booking_status,
+                d.full_name AS driver_name,
+                d.phone AS driver_phone,
+                ba.ba_name AS ba_name,
+                ba.ba_mobile AS ba_mobile
+            FROM booking_rejections br
+            LEFT JOIN bookings b ON b.id = br.booking_id
+            LEFT JOIN drivers d ON d.id = br.driver_id
+            LEFT JOIN business_associates ba ON ba.id = br.ba_id
+            ORDER BY br.id DESC
+            LIMIT 200
+        `);
+
+        const data = rows.map(row => ({
+            ...row,
+            rejected_by_type: row.driver_id ? 'DRIVER' : 'BA',
+            rejected_by_name: row.driver_id ? row.driver_name : row.ba_name,
+        }));
+
+        return res.json({ status: true, message: 'Booking rejections fetched successfully', total: data.length, data });
+    } catch (error) {
+        console.error('getBookingRejections Error:', error);
+        return res.status(500).json({ status: false, message: error.message });
+    }
+};
+
 exports.updateWithdrawalStatus = async (req, res) => {
     try {
         const { id } = req.params;

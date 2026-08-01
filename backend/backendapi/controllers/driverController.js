@@ -2214,6 +2214,40 @@ exports.getDriverDocumentsByAdmin = async (req, res) => {
         });
     }
 };
+
+exports.getAllDriverDocuments = async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT
+                dd.id,
+                dd.driver_id,
+                dd.document_type,
+                sd.document_type AS document_name,
+                dd.document_number,
+                dd.document_file,
+                dd.expiry_date,
+                dd.status,
+                dd.remark,
+                dd.verified_by,
+                dd.verified_at,
+                dd.created_at,
+                dd.updated_at,
+                d.full_name AS driver_name,
+                d.phone AS driver_phone
+            FROM driver_documents dd
+            LEFT JOIN drivers d ON d.id = dd.driver_id
+            LEFT JOIN service_document sd ON sd.id = dd.document_type
+            ORDER BY dd.created_at DESC
+            LIMIT 300
+        `);
+
+        return res.json({ status: true, message: 'Driver documents fetched successfully', total: rows.length, data: rows });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ status: false, message: 'Server error', error: error.message });
+    }
+};
+
 exports.verifyDriverDocument = async (req, res) => {
     try {
         const { id, doc_id } = req.params;

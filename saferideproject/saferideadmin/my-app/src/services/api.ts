@@ -62,6 +62,8 @@ export const deleteBussinessAssociate  = (id: number)               => API.delet
 
 // Booking history — all support: status, service_id, from_date, to_date, search, page, limit
 export const getAllBookinghistory    = (params?: Record<string, unknown>) => API.get('all/bookinghistory', { params });
+export const getBookingRejections    = () => API.get('/admin/booking-rejections');
+export const getAllDriverDocuments   = () => API.get('/admin/driver-documents');
 export const getSelfSharingTrips    = (params?: Record<string, unknown>) => API.get('/admin/selfsharing/trips', { params });
 export const getSelfSharingBookings = (params?: Record<string, unknown>) => API.get('/admin/selfsharing/bookings', { params });
 export const getParcelBookings      = (params?: Record<string, unknown>) => API.get('/admin/parcel/bookings', { params });
