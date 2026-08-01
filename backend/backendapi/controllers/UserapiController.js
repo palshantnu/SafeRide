@@ -1495,8 +1495,8 @@ exports.cancelBooking = async (req, res) => {
         const cancelled_by = role;
 
         // ─── Cancellation fee from sub_services (time-window based) ─────
-        // A charge applies ONLY after a captain has accepted the ride. If the ride
-        // is still searching / not yet accepted, cancelling is free.
+        // A charge applies ONLY after a captain has accepted the ride and only for
+        // In-City bookings (service_id = 1). Other services have no cancellation fee.
         const preAcceptance = ['PENDING', 'SEARCHING', 'SCHEDULED'];
         const isAccepted    = booking.driver_id && !preAcceptance.includes(booking.status);
 
@@ -1504,7 +1504,7 @@ exports.cancelBooking = async (req, res) => {
         let feeAppliedOn    = null;
         let walletDeducted  = 0;
 
-        if (isAccepted && booking.sub_service_id) {
+        if (isAccepted && booking.service_id === 1 && booking.sub_service_id) {
             const [[ss]] = await db.query(
                 `SELECT
                     user_cancel_before48_type, user_cancel_before48_amount,
@@ -1543,30 +1543,20 @@ exports.cancelBooking = async (req, res) => {
                 cancellationFee = Math.round(cancellationFee * 100) / 100;
                 feeAppliedOn    = prefix;
 
-                // deduct from the canceller's wallet — never let it go negative
+                // deduct from the canceller's wallet
                 if (cancellationFee > 0) {
                     const table   = role === 'DRIVER' ? 'drivers' : 'users';
                     const walletOwnerId = role === 'DRIVER' ? booking.driver_id : booking.user_id;
                     const [[owner]] = await db.query(`SELECT wallet FROM ${table} WHERE id = ?`, [walletOwnerId]);
-                    // const balance = parseFloat(owner?.wallet || 0);
-                    // walletDeducted = Math.min(cancellationFee, Math.max(0, balance));
-                    // if (walletDeducted > 0) {
-                    //     await db.query(
-                    //         `UPDATE ${table} SET wallet = wallet - ? WHERE id = ?`,
-                    //         [walletDeducted, walletOwnerId]
-                    //     );
-                    // }
-                    const balance = parseFloat(owner?.wallet || 0);
 
-// Always deduct full cancellation fee
-walletDeducted = cancellationFee;
+                    walletDeducted = cancellationFee;
 
-await db.query(
-    `UPDATE ${table}
-     SET wallet = wallet - ?
-     WHERE id = ?`,
-    [walletDeducted, walletOwnerId]
-);
+                    await db.query(
+                        `UPDATE ${table}
+                         SET wallet = wallet - ?
+                         WHERE id = ?`,
+                        [walletDeducted, walletOwnerId]
+                    );
                 }
             }
         }
