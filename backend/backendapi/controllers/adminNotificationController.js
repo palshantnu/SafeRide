@@ -9,7 +9,11 @@ exports.getAdminNotifications = async (req, res) => {
       total: rows.length,
       data: rows.map(row => ({
         ...row,
-        payload: row.payload ? JSON.parse(row.payload) : null,
+        payload: row.payload
+          ? (typeof row.payload === 'string'
+              ? JSON.parse(row.payload)
+              : row.payload)
+          : null,
       })),
     });
   } catch (error) {

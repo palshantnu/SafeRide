@@ -41,15 +41,8 @@ interface NotificationItem {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const NOTIF_KEY = 'sr_admin_notifs_v1';
 const SEEN_KEY  = 'sr_admin_seen_v1';
 
-function loadNotifs(): NotificationItem[] {
-  try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]'); } catch { return []; }
-}
-function saveNotifs(n: NotificationItem[]) {
-  localStorage.setItem(NOTIF_KEY, JSON.stringify(n.slice(0, 60)));
-}
 function loadSeen(): Record<string, string[]> {
   try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); } catch { return {}; }
 }
@@ -106,7 +99,7 @@ function fmtTime(ts: number): string {
 export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: NavbarProps) {
   const navigate = useNavigate();
   const { user, isSuperAdmin } = usePermissions();
-  const [notifs, setNotifs]   = useState<NotificationItem[]>(loadNotifs);
+  const [notifs, setNotifs]   = useState<NotificationItem[]>([]);
   const [open,   setOpen]     = useState(false);
 
   // Who is logged in — name + role shown next to the avatar.
@@ -130,50 +123,28 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
   // ── Poll ──────────────────────────────────────────────────────────────────
   const poll = useCallback(async () => {
     try {
-          const response = await getAdminNotifications();
-      const notifications = Array.isArray(response.data?.data)
+      const response = await getAdminNotifications();
+      const apiItems = Array.isArray(response.data?.data)
         ? response.data.data as Record<string, unknown>[]
         : [];
 
       const seen  = seenRef.current;
-      const fresh: NotificationItem[] = [];
-      const now   = Date.now();
-      const isInit = !initDone.current;
+      if (!seen.admin_notif) seen.admin_notif = new Set();
 
-      notifications.forEach((item) => {
-        const id = (item.id as number | string) ?? `${item.source_table}_${item.source_id}_${item.created_at}`;
-        const eventKey = `admin_notif_${id}`;
-        if (!seen.admin_notif) seen.admin_notif = new Set();
-        if (isInit) {
-          seen.admin_notif.add(eventKey);
-          return;
-        }
-        if (!seen.admin_notif.has(eventKey)) {
-          seen.admin_notif.add(eventKey);
-          fresh.push({
-            id: `${eventKey}_${now}`,
-            type: (item.type as NType) || 'user',
-            message: String(item.message || 'Notification'),
-            sub: String(item.sub || ''),
-            time: new Date(String(item.created_at)).getTime() || now,
-            read: false,
-          });
-        }
+      const mapped: NotificationItem[] = apiItems.map((item) => {
+        const id = String(item.id ?? `${item.source_table}_${item.source_id}_${item.created_at}`);
+        return {
+          id,
+          type: (item.type as NType) || 'user',
+          message: String(item.message || 'Notification'),
+          sub: String(item.sub || ''),
+          time: new Date(String(item.created_at)).getTime() || Date.now(),
+          read: seen.admin_notif.has(id),
+        };
       });
 
-      const flat: Record<string, number[]> = {};
-      for (const k of Object.keys(seen)) flat[k] = Array.from(seen[k]);
-      saveSeen(flat);
-
-      if (isInit) {
-        initDone.current = true;
-      } else if (fresh.length > 0) {
-        setNotifs(prev => {
-          const updated = [...fresh, ...prev].slice(0, 60);
-          saveNotifs(updated);
-          return updated;
-        });
-      }
+      setNotifs(mapped.slice(0, 60));
+      if (!initDone.current) initDone.current = true;
     } catch { /* silent */ }
   }, []);
 
@@ -193,11 +164,24 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
   }, []);
 
   const markAllRead = () => {
-    setNotifs(prev => { const u = prev.map(n => ({ ...n, read: true })); saveNotifs(u); return u; });
+    const seen = seenRef.current;
+    if (!seen.admin_notif) seen.admin_notif = new Set();
+    setNotifs(prev => {
+      const updated = prev.map(n => {
+        seen.admin_notif?.add(n.id);
+        return { ...n, read: true };
+      });
+      saveSeen({ admin_notif: Array.from(seen.admin_notif) });
+      return updated;
+    });
   };
-  const clearAll = () => { setNotifs([]); saveNotifs([]); };
+  const clearAll = () => { setNotifs([]); };
   const markRead = (id: string) => {
-    setNotifs(prev => { const u = prev.map(n => n.id === id ? { ...n, read: true } : n); saveNotifs(u); return u; });
+    const seen = seenRef.current;
+    if (!seen.admin_notif) seen.admin_notif = new Set();
+    seen.admin_notif.add(id);
+    saveSeen({ admin_notif: Array.from(seen.admin_notif) });
+    setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
   const handleNotifClick = (n: NotificationItem) => {
     markRead(n.id);
