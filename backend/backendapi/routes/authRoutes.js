@@ -38,6 +38,7 @@ const locationController = require('../controllers/locationController');
 
 // ── Current admin (permissions for the logged-in user) ─────────────────────//
 router.get('/admin/me',                        verifyToken, staffController.getMe);
+router.put('/admin/profile',                   verifyToken, staffController.updateAdminProfile);
 
 // ── Staff ──────────────────────────────────────────────────────────────────//
 router.post('/admin/staff',                    staffController.createStaff);

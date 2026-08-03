@@ -5,7 +5,7 @@ import {
   Menu, Search, Bell, X, User, Car, ShoppingBag,
   XCircle, Briefcase, AlertTriangle, ShieldCheck, Wallet, CheckCheck, Trash2,
 } from "lucide-react";
-import { getAdminNotifications } from "../services/api";
+import { getAdminNotifications, updateAdminProfile } from "../services/api";
 import { usePermissions } from "../context/PermissionsContext";
 
 interface NavbarProps {
@@ -101,6 +101,10 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
   const { user, isSuperAdmin } = usePermissions();
   const [notifs, setNotifs]   = useState<NotificationItem[]>([]);
   const [open,   setOpen]     = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [form, setForm] = useState({ email: user?.email || '', currentPassword: '', password: '', confirmPassword: '' });
+  const [saving, setSaving] = useState(false);
+  const [profileMsg, setProfileMsg] = useState<string | null>(null);
 
   // Who is logged in — name + role shown next to the avatar.
   const displayName = user?.name || (isSuperAdmin ? 'Sigiride Admin' : 'Staff');
@@ -111,6 +115,10 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
   const dropRef    = useRef<HTMLDivElement>(null);
 
   const unread = notifs.filter(n => !n.read).length;
+
+  useEffect(() => {
+    setForm(prev => ({ ...prev, email: user?.email || '' }));
+  }, [user?.email]);
 
   // ── Initialise seen sets from localStorage ────────────────────────────────
   useEffect(() => {
@@ -188,6 +196,30 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
     setOpen(false);
     const route = TYPE_ROUTE[n.type];
     if (route) navigate(route);
+  };
+
+  const handleProfileSave = async () => {
+    if (form.password && form.password !== form.confirmPassword) {
+      setProfileMsg('New password and confirm password do not match');
+      return;
+    }
+
+    setSaving(true);
+    setProfileMsg(null);
+    try {
+      const payload: { email?: string; password?: string; currentPassword?: string } = {};
+      if (form.email) payload.email = form.email;
+      if (form.password) payload.password = form.password;
+      if (form.password) payload.currentPassword = form.currentPassword;
+      const res = await updateAdminProfile(payload);
+      setProfileMsg(res?.data?.message || 'Profile updated successfully');
+      setForm(prev => ({ ...prev, currentPassword: '', password: '', confirmPassword: '' }));
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setProfileMsg(e?.response?.data?.message || e?.message || 'Failed to update profile');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -359,18 +391,36 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
         </div>
 
         {/* ── User (name + role) + Avatar ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
           <div className="admin-navbar-user" style={{ textAlign: "right", lineHeight: 1.2 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", whiteSpace: "nowrap" }}>{displayName}</div>
             <div style={{ fontSize: 11, fontWeight: 600, color: "#6366f1", whiteSpace: "nowrap", textTransform: "capitalize" }}>{roleLabel}</div>
           </div>
-          <div title={`${displayName} · ${roleLabel}`} style={{
+          <button onClick={() => setProfileOpen(v => !v)} title="Update profile" style={{
             width: 38, height: 38, borderRadius: "50%",
             background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
             display: "flex", alignItems: "center", justifyContent: "center",
             color: "white", fontWeight: 800, fontSize: 14, cursor: "pointer", flexShrink: 0,
-            boxShadow: "0 2px 8px rgba(99,102,241,0.4)"
-          }}>{avatarChar}</div>
+            boxShadow: "0 2px 8px rgba(99,102,241,0.4)", border: "none"
+          }}>{avatarChar}</button>
+
+          {profileOpen && (
+            <div style={{ position: "absolute", top: "calc(100% + 10px)", right: 0, width: 320, background: "white", borderRadius: 16, border: "1.5px solid #e2e8f0", boxShadow: "0 16px 48px rgba(0,0,0,0.14)", padding: 16, zIndex: 1000 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 12 }}>Update Admin Profile</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Email</label>
+                <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 10px", fontSize: 13 }} />
+                <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Current Password</label>
+                <input type="password" value={form.currentPassword} onChange={e => setForm({ ...form, currentPassword: e.target.value })} style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 10px", fontSize: 13 }} />
+                <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>New Password</label>
+                <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 10px", fontSize: 13 }} />
+                <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Confirm Password</label>
+                <input type="password" value={form.confirmPassword} onChange={e => setForm({ ...form, confirmPassword: e.target.value })} style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 10px", fontSize: 13 }} />
+                {profileMsg && <div style={{ fontSize: 12, color: profileMsg.includes('success') ? '#15803d' : '#ef4444' }}>{profileMsg}</div>}
+                <button onClick={handleProfileSave} disabled={saving} style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "white", border: "none", borderRadius: 10, padding: "9px 10px", cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontWeight: 600 }}>{saving ? 'Saving...' : 'Save Changes'}</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -13,6 +13,8 @@ API.interceptors.request.use((config) => {
 export const loginUser = (data: { email: string; password: string }) =>
   API.post("/login", data);
 export const getMe = () => API.get("/admin/me"); // current admin + permissions
+export const updateAdminProfile = (data: { email?: string; password?: string; currentPassword?: string }) =>
+  API.put("/admin/profile", data);
 export const getAllUsers = () => API.get("/userlist");
 export const createUser = (data: object) => API.post("/user", data);
 export const updateUser = (id: string | number, data: object) =>API.put(`/user/${id}`, data);

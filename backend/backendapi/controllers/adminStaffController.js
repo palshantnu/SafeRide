@@ -233,6 +233,64 @@ exports.getMe = async (req, res) => {
     }
 };
 
+exports.updateAdminProfile = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) return res.status(401).json({ status: false, message: "Unauthorized" });
+
+        const { email, password, currentPassword } = req.body;
+
+        if (!email && !password) {
+            return res.status(400).json({ status: false, message: "Provide email or password to update" });
+        }
+
+        const [[existing]] = await db.query(`SELECT id, email, password FROM users WHERE id = ?`, [userId]);
+        if (!existing) return res.status(404).json({ status: false, message: "Admin not found" });
+
+        if (password) {
+            if (!currentPassword) {
+                return res.status(400).json({ status: false, message: "Current password is required to change password" });
+            }
+
+            const isMatch = await bcrypt.compare(String(currentPassword), existing.password || "");
+            if (!isMatch) {
+                return res.status(400).json({ status: false, message: "Current password is incorrect" });
+            }
+        }
+
+        const [emailCheck] = await db.query(`SELECT id FROM users WHERE email = ? AND id != ?`, [email, userId]);
+        if (email && emailCheck.length) {
+            return res.status(409).json({ status: false, message: "Email already in use" });
+        }
+
+        const updates = [];
+        const values = [];
+
+        if (email) {
+            updates.push("email = ?");
+            values.push(email);
+        }
+
+        if (password) {
+            const hashed = await bcrypt.hash(String(password), 10);
+            updates.push("password = ?");
+            values.push(hashed);
+        }
+
+        if (!updates.length) {
+            return res.status(400).json({ status: false, message: "No valid changes provided" });
+        }
+
+        values.push(userId);
+        await db.query(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`, values);
+
+        return res.json({ status: true, message: "Profile updated successfully" });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ status: false, message: "Server error", error: error.message });
+    }
+};
+
 exports.assignRoleToStaff = async (req, res) => {
     try {
         const { id } = req.params;
