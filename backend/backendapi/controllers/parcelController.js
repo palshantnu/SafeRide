@@ -935,11 +935,16 @@ exports.adminGetAllBookings = async (req, res) => {
 
         const [rows] = await db.execute(`
             SELECT ${PARCEL_FIELDS},
-                   s.title AS service_name, p.plan_name,
+                   pb.parcel_booking_id AS booking_id,
+                   pb.amount AS total_fare,
+                   pb.actual_amount AS actual_fare,
+                   TIMESTAMP(pb.pickup_date, pb.pickup_time) AS schedule_date,
+                   s.title AS service_name, ss.title AS sub_service_name, p.plan_name,
                    u.name AS user_name, u.mobile AS user_mobile,
-                   d.full_name AS driver_name, d.phone AS driver_phone
+                   d.full_name AS driver_name, d.phone AS driver_phone, d.phone AS driver_mobile
             FROM parcel_bookings pb
             LEFT JOIN services s ON s.id = pb.service_id
+            LEFT JOIN sub_services ss ON ss.id = pb.sub_service_id
             LEFT JOIN plans p    ON p.id = pb.plan_id
             LEFT JOIN users u    ON u.id = pb.user_id
             LEFT JOIN drivers d  ON d.id = pb.driver_id

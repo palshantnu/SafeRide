@@ -975,21 +975,31 @@ exports.adminGetAllTrips = async (req, res) => {
 
         const [rows] = await db.execute(`
             SELECT t.*,
+                   t.from_city AS pickup_city,
+                   t.to_city AS drop_city,
+                   t.departure_time AS schedule_date,
+                   t.total_seats AS seat_count,
+                   t.full_fare AS total_fare,
                    COUNT(sb.id)                  AS total_bookings,
                    COALESCE(SUM(sb.seats), 0)    AS booked_seats,
+                   COALESCE(SUM(sb.seats), 0)    AS passenger_count,
                    s.title AS service_name,
                    CASE t.creator_type
-                       WHEN 'DRIVER' THEN d.full_name
+                       WHEN 'DRIVER' THEN creator_driver.full_name
                        WHEN 'BA'     THEN ba.ba_name
                    END AS creator_name,
                    CASE t.creator_type
-                       WHEN 'DRIVER' THEN d.phone
+                       WHEN 'DRIVER' THEN creator_driver.phone
                        WHEN 'BA'     THEN ba.ba_mobile
-                   END AS creator_mobile
+                   END AS creator_mobile,
+                   COALESCE(assigned_driver.id, CASE WHEN t.creator_type = 'DRIVER' THEN creator_driver.id END) AS driver_id,
+                   COALESCE(assigned_driver.full_name, CASE WHEN t.creator_type = 'DRIVER' THEN creator_driver.full_name END, ba.ba_name) AS driver_name,
+                   COALESCE(assigned_driver.phone, CASE WHEN t.creator_type = 'DRIVER' THEN creator_driver.phone END, ba.ba_mobile) AS driver_mobile
             FROM sigi_trips t
             LEFT JOIN sigi_bookings sb           ON sb.trip_id = t.id AND sb.status != 'CANCELLED'
             LEFT JOIN services s                 ON s.id = t.service_id
-            LEFT JOIN drivers d                  ON t.creator_type = 'DRIVER' AND d.id = t.creator_id
+            LEFT JOIN drivers creator_driver     ON t.creator_type = 'DRIVER' AND creator_driver.id = t.creator_id
+            LEFT JOIN drivers assigned_driver    ON assigned_driver.id = t.assigned_driver_id
             LEFT JOIN business_associates ba     ON t.creator_type = 'BA'     AND ba.id = t.creator_id
             ${where}
             GROUP BY t.id
@@ -1042,10 +1052,20 @@ exports.adminGetAllBookings = async (req, res) => {
 
         const [rows] = await db.execute(`
             SELECT sb.*, st.trip_id, st.from_city, st.to_city, st.departure_time,
-                   u.name AS user_name, u.mobile AS user_mobile
+                   st.from_city AS pickup_city,
+                   st.to_city AS drop_city,
+                   st.departure_time AS schedule_date,
+                   s.title AS service_name,
+                   u.name AS user_name, u.mobile AS user_mobile,
+                   COALESCE(assigned_driver.id, CASE WHEN st.creator_type = 'DRIVER' THEN creator_driver.id END) AS driver_id,
+                   COALESCE(assigned_driver.full_name, CASE WHEN st.creator_type = 'DRIVER' THEN creator_driver.full_name END) AS driver_name,
+                   COALESCE(assigned_driver.phone, CASE WHEN st.creator_type = 'DRIVER' THEN creator_driver.phone END) AS driver_mobile
             FROM sigi_bookings sb
             JOIN sigi_trips st ON st.id = sb.trip_id
+            LEFT JOIN services s ON s.id = st.service_id
             LEFT JOIN users u ON u.id = sb.user_id
+            LEFT JOIN drivers creator_driver ON st.creator_type = 'DRIVER' AND creator_driver.id = st.creator_id
+            LEFT JOIN drivers assigned_driver ON assigned_driver.id = st.assigned_driver_id
             ${where}
             ORDER BY sb.id DESC
             LIMIT ${limitNum} OFFSET ${offset}

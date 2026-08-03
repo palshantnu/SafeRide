@@ -11,6 +11,8 @@ interface SharingTrip {
   id: number;
   trip_id?: string | null;
   status?: string | null;
+  from_city?: string | null;
+  to_city?: string | null;
   pickup_address?: string | null;
   drop_address?: string | null;
   pickup_city?: string | null;
@@ -22,10 +24,16 @@ interface SharingTrip {
   driver_name?: string | null;
   driver_mobile?: string | null;
   passenger_count?: number | null;
+  booked_seats?: number | null;
   seat_count?: number | null;
+  total_seats?: number | null;
   available_seats?: number | null;
   schedule_date?: string | null;
+  departure_time?: string | null;
   payment_mode?: string | null;
+  full_fare?: string | number | null;
+  creator_name?: string | null;
+  creator_mobile?: string | null;
   created_at?: string;
   [key: string]: unknown;
 }
@@ -41,6 +49,9 @@ interface SharingBooking {
   driver_id?: number | null;
   driver_name?: string | null;
   driver_mobile?: string | null;
+  driver_phone?: string | null;
+  from_city?: string | null;
+  to_city?: string | null;
   pickup_address?: string | null;
   drop_address?: string | null;
   pickup_city?: string | null;
@@ -51,6 +62,7 @@ interface SharingBooking {
   paid?: number | null;
   sub_service_name?: string | null;
   schedule_date?: string | null;
+  departure_time?: string | null;
   created_at?: string;
   [key: string]: unknown;
 }
@@ -59,12 +71,17 @@ interface SharingBooking {
 const STATUS_CONFIG: Record<string, { bg: string; color: string; dot: string }> = {
   COMPLETED:    { bg: '#d1fae5', color: '#065f46', dot: '#10b981' },
   CANCELLED:    { bg: '#fff1f2', color: '#991b1b', dot: '#ef4444' },
+  UPCOMING:     { bg: '#e0f2fe', color: '#075985', dot: '#0ea5e9' },
+  BOARDING:     { bg: '#fef3c7', color: '#92400e', dot: '#f59e0b' },
   SEARCHING:    { bg: '#fef3c7', color: '#92400e', dot: '#f59e0b' },
   ACCEPTED:     { bg: '#dbeafe', color: '#1e40af', dot: '#3b82f6' },
   STARTED:      { bg: '#dcfce7', color: '#166534', dot: '#22c55e' },
   DROPPED:      { bg: '#f0fdf4', color: '#14532d', dot: '#4ade80' },
   PENDING:      { bg: '#fef9c3', color: '#854d0e', dot: '#eab308' },
   ACTIVE:       { bg: '#ede9fe', color: '#5b21b6', dot: '#8b5cf6' },
+  TOKEN_PAID:   { bg: '#ecfdf5', color: '#065f46', dot: '#34d399' },
+  CONFIRMED:    { bg: '#dbeafe', color: '#1e40af', dot: '#3b82f6' },
+  BOARDED:      { bg: '#dcfce7', color: '#166534', dot: '#22c55e' },
   PAYMENT_DONE: { bg: '#ecfdf5', color: '#065f46', dot: '#34d399' },
 };
 const getStatus = (s?: string | null) =>
@@ -126,17 +143,17 @@ function DetailModal({ data, type, onClose }: { data: SharingTrip | SharingBooki
           {type === 'trip' ? (
             <>
               <Row label="Trip ID"     value={d.trip_id as string || `#${d.id}`} />
-              <Row label="Driver"      value={d.driver_name as string} />
-              <Row label="Mobile"      value={d.driver_mobile as string} />
-              <Row label="Pickup"      value={d.pickup_address as string || d.pickup_city as string} />
-              <Row label="Drop"        value={d.drop_address as string || d.drop_city as string} />
+              <Row label="Driver"      value={d.driver_name as string || d.creator_name as string} />
+              <Row label="Mobile"      value={d.driver_mobile as string || d.creator_mobile as string} />
+              <Row label="Pickup"      value={d.pickup_address as string || d.pickup_city as string || d.from_city as string} />
+              <Row label="Drop"        value={d.drop_address as string || d.drop_city as string || d.to_city as string} />
               <Row label="Distance"    value={d.distance ? `${d.distance} km` : undefined} />
-              <Row label="Seats"       value={d.seat_count as string} />
-              <Row label="Passengers"  value={d.passenger_count as string} />
-              <Row label="Total Fare"  value={fmtAmt(d.total_fare as string)} />
+              <Row label="Seats"       value={d.seat_count as string || d.total_seats as string} />
+              <Row label="Passengers"  value={d.passenger_count as string || d.booked_seats as string} />
+              <Row label="Total Fare"  value={fmtAmt((d.total_fare || d.full_fare) as string)} />
               <Row label="Platform Fee"value={fmtAmt(d.platform_fee as string)} />
               <Row label="Payment"     value={d.payment_mode as string} />
-              <Row label="Scheduled"   value={fmtDate(d.schedule_date as string)} />
+              <Row label="Scheduled"   value={fmtDate((d.schedule_date || d.departure_time) as string)} />
               <Row label="Created"     value={fmtDate(d.created_at as string)} />
             </>
           ) : (
@@ -145,13 +162,14 @@ function DetailModal({ data, type, onClose }: { data: SharingTrip | SharingBooki
               <Row label="User"        value={d.user_name as string} />
               <Row label="Mobile"      value={d.user_mobile as string} />
               <Row label="Driver"      value={d.driver_name as string} />
+              <Row label="Driver Mobile" value={d.driver_mobile as string || d.driver_phone as string} />
               <Row label="Sub Service" value={d.sub_service_name as string} />
-              <Row label="Pickup"      value={d.pickup_address as string || d.pickup_city as string} />
-              <Row label="Drop"        value={d.drop_address as string || d.drop_city as string} />
+              <Row label="Pickup"      value={d.pickup_address as string || d.pickup_city as string || d.from_city as string} />
+              <Row label="Drop"        value={d.drop_address as string || d.drop_city as string || d.to_city as string} />
               <Row label="Total Fare"  value={fmtAmt((d.total_fare || d.plan_price) as string)} />
               <Row label="Payment"     value={d.payment_mode as string} />
               <Row label="Paid"        value={d.paid === 1 ? 'Yes' : d.paid === 0 ? 'No' : undefined} />
-              <Row label="Scheduled"   value={fmtDate(d.schedule_date as string)} />
+              <Row label="Scheduled"   value={fmtDate((d.schedule_date || d.departure_time) as string)} />
               <Row label="Created"     value={fmtDate(d.created_at as string)} />
             </>
           )}
@@ -174,7 +192,7 @@ function TripsTab() {
   const fetchTrips = useCallback(async () => {
     setLoading(true);
     try {
-      const res  = await getSelfSharingTrips();
+      const res  = await getSelfSharingTrips({ limit: 1000 });
       const body = (res as { data: unknown }).data;
       console.log('[SelfSharing] trips raw response:', body);
       const list = extractList<SharingTrip>(body);
@@ -189,8 +207,8 @@ function TripsTab() {
   const filtered = useMemo(() => trips.filter(t => {
     const q = search.toLowerCase();
     const ms = !q || String(t.id).includes(q) || (t.trip_id || '').toLowerCase().includes(q) ||
-      (t.driver_name || '').toLowerCase().includes(q) || (t.pickup_city || '').toLowerCase().includes(q) ||
-      (t.drop_city || '').toLowerCase().includes(q);
+      (t.driver_name || t.creator_name || '').toLowerCase().includes(q) || (t.pickup_city || t.from_city || '').toLowerCase().includes(q) ||
+      (t.drop_city || t.to_city || '').toLowerCase().includes(q);
     const mst = !status || (t.status || '').toUpperCase() === status.toUpperCase();
     return ms && mst;
   }), [trips, search, status]);
@@ -211,8 +229,8 @@ function TripsTab() {
         <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}
           style={{ border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '7px 12px', fontSize: 12, outline: 'none', background: 'white', color: '#1e293b' }}>
           <option value="">All Status</option>
-          <option value="PENDING">Pending</option>
-          <option value="ACTIVE">Active</option>
+          <option value="UPCOMING">Upcoming</option>
+          <option value="BOARDING">Boarding</option>
           <option value="STARTED">Started</option>
           <option value="COMPLETED">Completed</option>
           <option value="CANCELLED">Cancelled</option>
@@ -257,30 +275,30 @@ function TripsTab() {
                         <Car size={14} color="#16a34a" />
                       </div>
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{t.driver_name || '—'}</div>
-                        <div style={{ fontSize: 11, color: '#94a3b8' }}>{t.driver_mobile || ''}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{t.driver_name || t.creator_name || '—'}</div>
+                        <div style={{ fontSize: 11, color: '#94a3b8' }}>{t.driver_mobile || t.creator_mobile || ''}</div>
                       </div>
                     </div>
                   </td>
                   <td style={{ padding: '11px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#475569' }}>
                       <MapPin size={11} color="#6366f1" />
-                      <span>{t.pickup_city || '—'}</span>
+                      <span>{t.pickup_city || t.from_city || '—'}</span>
                       <Navigation size={10} color="#cbd5e1" />
-                      <span>{t.drop_city || '—'}</span>
+                      <span>{t.drop_city || t.to_city || '—'}</span>
                     </div>
                   </td>
                   <td style={{ padding: '11px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Users size={12} color="#6366f1" />
-                      <span style={{ fontSize: 12, color: '#475569' }}>{t.passenger_count ?? '—'} / {t.seat_count ?? '—'}</span>
+                      <span style={{ fontSize: 12, color: '#475569' }}>{t.passenger_count ?? t.booked_seats ?? '—'} / {t.seat_count ?? t.total_seats ?? '—'}</span>
                     </div>
                   </td>
-                  <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 700, color: '#059669' }}>{fmtAmt(t.total_fare)}</td>
+                  <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 700, color: '#059669' }}>{fmtAmt(t.total_fare || t.full_fare)}</td>
                   <td style={{ padding: '11px 14px', fontSize: 12, color: '#64748b' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <Calendar size={11} />
-                      {t.schedule_date ? fmtDate(t.schedule_date) : fmtDate(t.created_at)}
+                      {t.schedule_date || t.departure_time ? fmtDate(t.schedule_date || t.departure_time) : fmtDate(t.created_at)}
                     </div>
                   </td>
                   <td style={{ padding: '11px 14px' }}><StatusBadge status={t.status} /></td>
@@ -329,7 +347,7 @@ function BookingsTab() {
   const fetchBookings = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getSelfSharingBookings();
+      const res = await getSelfSharingBookings({ limit: 1000 });
       const body = (res as { data: unknown }).data;
       console.log('[SelfSharing] bookings raw response:', body);
       const list = extractList<SharingBooking>(body);
@@ -345,7 +363,7 @@ function BookingsTab() {
     const q = search.toLowerCase();
     const ms = !q || String(b.id).includes(q) || (b.booking_id || '').toLowerCase().includes(q) ||
       (b.user_name || '').toLowerCase().includes(q) || (b.user_mobile || '').includes(q) ||
-      (b.driver_name || '').toLowerCase().includes(q) || (b.pickup_city || '').toLowerCase().includes(q);
+      (b.driver_name || '').toLowerCase().includes(q) || (b.pickup_city || b.from_city || '').toLowerCase().includes(q);
     const mst = !status || (b.status || '').toUpperCase() === status.toUpperCase();
     return ms && mst;
   }), [bookings, search, status]);
@@ -366,12 +384,11 @@ function BookingsTab() {
         <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}
           style={{ border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '7px 12px', fontSize: 12, outline: 'none', background: 'white', color: '#1e293b' }}>
           <option value="">All Status</option>
-          <option value="SEARCHING">Searching</option>
-          <option value="ACCEPTED">Accepted</option>
-          <option value="STARTED">Started</option>
+          <option value="TOKEN_PAID">Token Paid</option>
+          <option value="CONFIRMED">Confirmed</option>
+          <option value="BOARDED">Boarded</option>
           <option value="COMPLETED">Completed</option>
           <option value="CANCELLED">Cancelled</option>
-          <option value="PAYMENT_DONE">Payment Done</option>
         </select>
         <button onClick={fetchBookings} disabled={loading}
           style={{ background: 'white', border: '1.5px solid #e2e8f0', color: '#64748b', padding: '7px 12px', borderRadius: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600 }}>
@@ -415,9 +432,9 @@ function BookingsTab() {
                   <td style={{ padding: '11px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#475569' }}>
                       <MapPin size={11} color="#6366f1" />
-                      <span>{b.pickup_city || '—'}</span>
+                      <span>{b.pickup_city || b.from_city || '—'}</span>
                       <span style={{ color: '#cbd5e1' }}>→</span>
-                      <span>{b.drop_city || '—'}</span>
+                      <span>{b.drop_city || b.to_city || '—'}</span>
                     </div>
                   </td>
                   <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 700, color: '#059669' }}>{fmtAmt(b.total_fare || b.plan_price)}</td>

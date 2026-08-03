@@ -732,11 +732,17 @@ exports.adminGetAllBookings = async (req, res) => {
 
         const [rows] = await db.execute(`
             SELECT ${ONSPOT_FIELDS},
-                   s.title AS service_name, p.plan_name,
+                   ob.booking_no AS booking_id,
+                   ob.city AS pickup_city,
+                   ob.full_address AS pickup_address,
+                   ob.total_amount AS total_fare,
+                   ob.schedule_datetime AS schedule_date,
+                   s.title AS service_name, ss.title AS sub_service_name, p.plan_name,
                    u.name AS user_name, u.mobile AS user_mobile,
-                   d.full_name AS driver_name, d.phone AS driver_phone
+                   d.full_name AS driver_name, d.phone AS driver_phone, d.phone AS driver_mobile
             FROM onspot_bookings ob
             LEFT JOIN services s ON s.id = ob.service_id
+            LEFT JOIN sub_services ss ON ss.id = ob.sub_service_id
             LEFT JOIN plans p    ON p.id = ob.plan_id
             LEFT JOIN users u    ON u.id = ob.user_id
             LEFT JOIN drivers d  ON d.id = ob.driver_id

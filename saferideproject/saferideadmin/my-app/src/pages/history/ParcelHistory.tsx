@@ -8,6 +8,7 @@ import { getParcelBookings } from '../../services/api';
 interface Booking {
   id: number;
   booking_id?: string | null;
+  parcel_booking_id?: string | null;
   status?: string | null;
   user_id?: number | null;
   user_name?: string | null;
@@ -15,6 +16,7 @@ interface Booking {
   driver_id?: number | null;
   driver_name?: string | null;
   driver_mobile?: string | null;
+  driver_phone?: string | null;
   pickup_city?: string | null;
   drop_city?: string | null;
   to_city?: string | null;
@@ -22,7 +24,9 @@ interface Booking {
   drop_address?: string | null;
   distance?: number | string | null;
   total_fare?: string | number | null;
+  amount?: string | number | null;
   actual_fare?: string | number | null;
+  actual_amount?: string | number | null;
   plan_price?: string | null;
   plan_name?: string | null;
   platform_fee?: string | null;
@@ -30,6 +34,8 @@ interface Booking {
   paid?: number | null;
   sub_service_name?: string | null;
   schedule_date?: string | null;
+  pickup_date?: string | null;
+  pickup_time?: string | null;
   cancel_reason?: string | null;
   cancelled_by?: string | null;
   created_at?: string;
@@ -39,10 +45,17 @@ interface Booking {
 
 const STATUS_CONFIG: Record<string, { bg: string; color: string; dot: string }> = {
   COMPLETED:    { bg: '#d1fae5', color: '#065f46', dot: '#10b981' },
+  DELIVERED:    { bg: '#d1fae5', color: '#065f46', dot: '#10b981' },
   CANCELLED:    { bg: '#fff1f2', color: '#991b1b', dot: '#ef4444' },
+  PENDING:      { bg: '#fef9c3', color: '#854d0e', dot: '#eab308' },
+  TOKEN_PAID:   { bg: '#ecfdf5', color: '#065f46', dot: '#34d399' },
   SEARCHING:    { bg: '#fef3c7', color: '#92400e', dot: '#f59e0b' },
   ACCEPTED:     { bg: '#dbeafe', color: '#1e40af', dot: '#3b82f6' },
   STARTED:      { bg: '#dcfce7', color: '#166534', dot: '#22c55e' },
+  PICKUP_REACHED: { bg: '#ede9fe', color: '#5b21b6', dot: '#8b5cf6' },
+  PICKED_UP:    { bg: '#e0f2fe', color: '#075985', dot: '#0ea5e9' },
+  IN_TRANSIT:   { bg: '#dbeafe', color: '#1e40af', dot: '#3b82f6' },
+  OUT_FOR_DELIVERY: { bg: '#fef3c7', color: '#92400e', dot: '#f59e0b' },
   DROPPED:      { bg: '#f0fdf4', color: '#14532d', dot: '#4ade80' },
   BALANCE_PAID: { bg: '#fdf4ff', color: '#6b21a8', dot: '#a855f7' },
   PAYMENT_DONE: { bg: '#ecfdf5', color: '#065f46', dot: '#34d399' },
@@ -68,6 +81,9 @@ function StatusBadge({ status }: { status?: string | null }) {
 }
 
 function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => void }) {
+  const bookingId = booking.booking_id || booking.parcel_booking_id;
+  const fare = booking.total_fare || booking.amount || booking.plan_price;
+  const scheduledAt = booking.schedule_date || booking.pickup_date || booking.created_at;
   const Row = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
       <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.3px', minWidth: 130, paddingTop: 2 }}>{label}</span>
@@ -86,14 +102,14 @@ function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => vo
         </div>
         <div style={{ padding: '16px 22px 22px' }}>
           <div style={{ background: 'linear-gradient(135deg,#fff7ed,#ffedd5)', border: '1.5px solid #fed7aa', borderRadius: 12, padding: '14px 18px', textAlign: 'center', marginBottom: 14 }}>
-            <div style={{ fontSize: 24, fontWeight: 800, color: '#c2410c' }}>{fmtAmt(booking.total_fare || booking.plan_price)}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#c2410c' }}>{fmtAmt(fare)}</div>
             <div style={{ fontSize: 11, color: '#fb923c', fontWeight: 600 }}>Total Fare</div>
           </div>
-          <Row label="Booking ID"    value={booking.booking_id} />
+          <Row label="Booking ID"    value={bookingId} />
           <Row label="Sender"        value={booking.user_name} />
           <Row label="Mobile"        value={booking.user_mobile} />
           <Row label="Captain"       value={booking.driver_name} />
-          <Row label="Captain Mobile"value={booking.driver_mobile} />
+          <Row label="Captain Mobile"value={booking.driver_mobile || booking.driver_phone} />
           <Row label="Sub Service"   value={booking.sub_service_name} />
           <Row label="Plan"          value={booking.plan_name} />
           <Row label="Pickup"        value={booking.pickup_address || booking.pickup_city} />
@@ -103,7 +119,7 @@ function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => vo
           <Row label="Payment Mode"  value={booking.payment_mode} />
           <Row label="Paid"          value={booking.paid === 1 ? 'Yes' : booking.paid === 0 ? 'No' : undefined} />
           {booking.cancel_reason && <Row label="Cancel Reason" value={booking.cancel_reason} />}
-          <Row label="Scheduled"     value={fmtDate(booking.schedule_date)} />
+          <Row label="Scheduled"     value={fmtDate(scheduledAt)} />
           <Row label="Created"       value={fmtDate(booking.created_at)} />
         </div>
       </div>
@@ -138,7 +154,7 @@ export default function ParcelHistory() {
 
   const filtered = useMemo(() => bookings.filter(b => {
     const q = search.toLowerCase();
-    const ms = !q || String(b.id).includes(q) || (b.booking_id || '').toLowerCase().includes(q) ||
+    const ms = !q || String(b.id).includes(q) || (b.booking_id || b.parcel_booking_id || '').toLowerCase().includes(q) ||
       (b.user_name || '').toLowerCase().includes(q) || (b.user_mobile || '').includes(q) ||
       (b.driver_name || '').toLowerCase().includes(q) || (b.pickup_city || '').toLowerCase().includes(q) ||
       (b.drop_city || '').toLowerCase().includes(q);
@@ -151,9 +167,9 @@ export default function ParcelHistory() {
 
   const stats = {
     total:     bookings.length,
-    completed: bookings.filter(b => ['COMPLETED', 'PAYMENT_DONE', 'BALANCE_PAID'].includes((b.status || '').toUpperCase())).length,
+    completed: bookings.filter(b => ['DELIVERED', 'COMPLETED', 'PAYMENT_DONE', 'BALANCE_PAID'].includes((b.status || '').toUpperCase())).length,
     cancelled: bookings.filter(b => (b.status || '').toUpperCase() === 'CANCELLED').length,
-    active:    bookings.filter(b => ['SEARCHING', 'ACCEPTED', 'STARTED', 'ARRIVED', 'PICKEDUP'].includes((b.status || '').toUpperCase())).length,
+    active:    bookings.filter(b => ['PENDING', 'TOKEN_PAID', 'ACCEPTED', 'PICKUP_REACHED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'].includes((b.status || '').toUpperCase())).length,
   };
 
   return (
@@ -208,13 +224,15 @@ export default function ParcelHistory() {
           <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}
             style={{ border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '7px 12px', fontSize: 12, outline: 'none', background: 'white', color: '#1e293b' }}>
             <option value="">All Status</option>
-            <option value="SEARCHING">Searching</option>
+            <option value="PENDING">Pending</option>
+            <option value="TOKEN_PAID">Token Paid</option>
             <option value="ACCEPTED">Accepted</option>
-            <option value="STARTED">Started</option>
-            <option value="PICKEDUP">Picked Up</option>
-            <option value="COMPLETED">Completed</option>
+            <option value="PICKUP_REACHED">Pickup Reached</option>
+            <option value="PICKED_UP">Picked Up</option>
+            <option value="IN_TRANSIT">In Transit</option>
+            <option value="OUT_FOR_DELIVERY">Out For Delivery</option>
+            <option value="DELIVERED">Delivered</option>
             <option value="CANCELLED">Cancelled</option>
-            <option value="PAYMENT_DONE">Payment Done</option>
           </select>
         </div>
 
@@ -249,7 +267,7 @@ export default function ParcelHistory() {
                     onMouseEnter={e => (e.currentTarget.style.background = '#fafbff')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'white')}>
                     <td style={{ padding: '11px 14px', fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>{(page - 1) * PER_PAGE + idx + 1}</td>
-                    <td style={{ padding: '11px 14px', fontSize: 12, fontWeight: 700, color: '#ea580c' }}>{b.booking_id || `#${b.id}`}</td>
+                    <td style={{ padding: '11px 14px', fontSize: 12, fontWeight: 700, color: '#ea580c' }}>{b.booking_id || b.parcel_booking_id || `#${b.id}`}</td>
                     <td style={{ padding: '11px 14px' }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{b.user_name || '—'}</div>
                       <div style={{ fontSize: 11, color: '#94a3b8' }}>{b.user_mobile || ''}</div>
@@ -264,10 +282,10 @@ export default function ParcelHistory() {
                       </div>
                     </td>
                     <td style={{ padding: '11px 14px', fontSize: 12, color: '#64748b' }}>{b.sub_service_name || '—'}</td>
-                    <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 700, color: '#c2410c' }}>{fmtAmt(b.total_fare || b.plan_price)}</td>
+                    <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 700, color: '#c2410c' }}>{fmtAmt(b.total_fare || b.amount || b.plan_price)}</td>
                     <td style={{ padding: '11px 14px', fontSize: 12, color: '#64748b' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Calendar size={11} />{fmtDate(b.created_at)}
+                        <Calendar size={11} />{fmtDate(b.schedule_date || b.pickup_date || b.created_at)}
                       </div>
                     </td>
                     <td style={{ padding: '11px 14px' }}><StatusBadge status={b.status} /></td>

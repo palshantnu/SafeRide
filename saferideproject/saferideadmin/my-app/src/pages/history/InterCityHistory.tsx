@@ -9,6 +9,7 @@ import { getAllBookinghistory } from '../../services/api';
 interface Booking {
   id: number;
   booking_id?: string | null;
+  booking_type?: string | null;
   status?: string | null;
   user_id?: number | null;
   user_name?: string | null;
@@ -41,8 +42,11 @@ interface Booking {
 const STATUS_CONFIG: Record<string, { bg: string; color: string; dot: string }> = {
   COMPLETED:    { bg: '#d1fae5', color: '#065f46', dot: '#10b981' },
   CANCELLED:    { bg: '#fff1f2', color: '#991b1b', dot: '#ef4444' },
+  PENDING:      { bg: '#fef9c3', color: '#854d0e', dot: '#eab308' },
   SEARCHING:    { bg: '#fef3c7', color: '#92400e', dot: '#f59e0b' },
+  ASSIGN:       { bg: '#dbeafe', color: '#1e40af', dot: '#3b82f6' },
   ACCEPTED:     { bg: '#dbeafe', color: '#1e40af', dot: '#3b82f6' },
+  TOKEN_PAID:   { bg: '#ecfdf5', color: '#065f46', dot: '#34d399' },
   STARTED:      { bg: '#dcfce7', color: '#166534', dot: '#22c55e' },
   DROPPED:      { bg: '#f0fdf4', color: '#14532d', dot: '#4ade80' },
   BALANCE_PAID: { bg: '#fdf4ff', color: '#6b21a8', dot: '#a855f7' },
@@ -57,6 +61,11 @@ const fmtDate = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtAmt = (v?: string | number | null) =>
   v != null && parseFloat(String(v)) > 0 ? `₹${parseFloat(String(v)).toFixed(2)}` : '—';
+const normalizeName = (v?: string | null) => (v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const isInterCityBooking = (b: Booking) => {
+  const service = normalizeName(b.service_name);
+  return b.booking_type === '1' || ['intercity', 'rental', 'oneway', 'outstation'].some(key => service.includes(key));
+};
 
 function StatusBadge({ status }: { status?: string | null }) {
   const st = getStatus(status);
@@ -134,7 +143,7 @@ export default function InterCityHistory() {
       const services = [...new Set(all.map(b => b.service_name).filter(Boolean))] as string[];
       setDiag({ raw: all.length, services });
       console.log('[InterCity] total bookings from API:', all.length, '| service_name values:', services);
-      setBookings(all.filter(b => (b.service_name || '').toLowerCase().replace(/[^a-z]/g, '').includes('intercity')));
+      setBookings(all.filter(isInterCityBooking));
     } catch (err) { console.error('[InterCity] fetch error:', err); setBookings([]); setDiag({ raw: 0, services: [] }); }
     finally { setLoading(false); }
   }, []);
@@ -204,8 +213,8 @@ export default function InterCityHistory() {
         {/* Diagnostic — shows when nothing matched but the API returned bookings */}
         {!loading && bookings.length === 0 && diag.raw > 0 && (
           <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontSize: 12.5, color: '#92400e' }}>
-            <b>No "Inter City" bookings matched.</b> The API returned <b>{diag.raw}</b> total bookings, but none have a service name containing "intercity".
-            {diag.services.length > 0 && <> Available service names: <b>{diag.services.join(', ')}</b>. Tell me which of these is Inter City (or if it uses a separate endpoint).</>}
+            <b>No Inter City bookings matched.</b> The API returned <b>{diag.raw}</b> total bookings, but none matched booking type "1" or service names Intercity/Rental/One Way/Outstation.
+            {diag.services.length > 0 && <> Available service names: <b>{diag.services.join(', ')}</b>.</>}
           </div>
         )}
         {!loading && diag.raw === 0 && (
@@ -226,12 +235,17 @@ export default function InterCityHistory() {
           <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}
             style={{ border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '7px 12px', fontSize: 12, outline: 'none', background: 'white', color: '#1e293b' }}>
             <option value="">All Status</option>
+            <option value="PENDING">Pending</option>
             <option value="SEARCHING">Searching</option>
+            <option value="ASSIGN">Assign</option>
             <option value="ACCEPTED">Accepted</option>
+            <option value="TOKEN_PAID">Token Paid</option>
             <option value="STARTED">Started</option>
+            <option value="ARRIVED">Arrived</option>
+            <option value="PICKEDUP">Picked Up</option>
+            <option value="DROPPED">Dropped</option>
             <option value="COMPLETED">Completed</option>
             <option value="CANCELLED">Cancelled</option>
-            <option value="PAYMENT_DONE">Payment Done</option>
             <option value="BALANCE_PAID">Balance Paid</option>
           </select>
         </div>
