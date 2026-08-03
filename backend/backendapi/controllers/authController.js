@@ -36,6 +36,30 @@ exports.getUsers = async (req, res) => {
   res.json(users);
 };
 
+exports.updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, mobile, role, status } = req.body;
+
+    const [existing] = await db.query("SELECT id FROM users WHERE id = ?", [id]);
+    if (!existing.length) {
+      return res.status(404).json({ status: false, message: 'User not found' });
+    }
+
+    const normalizedStatus = Number(status);
+    const normalizedRole = role || 'user';
+
+    await db.query(
+      `UPDATE users SET name = ?, email = ?, mobile = ?, role = ?, status = ?, updated_at = NOW() WHERE id = ?`,
+      [name ?? null, email ?? null, mobile ?? null, normalizedRole, Number.isNaN(normalizedStatus) ? 1 : normalizedStatus, id]
+    );
+
+    return res.json({ status: true, message: 'User updated successfully' });
+  } catch (error) {
+    return res.status(500).json({ status: false, message: 'Server error', error: error.message });
+  }
+};
+
 exports.sendOTP = async (req, res) => {
   const { mobile } = req.body;
   if (!mobile) {

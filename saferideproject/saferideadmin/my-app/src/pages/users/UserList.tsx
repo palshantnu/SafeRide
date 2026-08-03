@@ -5,7 +5,7 @@ import {
   X, AlertTriangle, Mail, Smartphone, Shield, Calendar, CheckCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getAllUsers, getAllBookinghistory } from "../../services/api";
+import { getAllUsers, getAllBookinghistory, updateUser } from "../../services/api";
 import { usePermissions } from "../../context/PermissionsContext";
 
 interface User {
@@ -100,10 +100,16 @@ function ViewModal({ user, onClose }: { user: User; onClose: () => void }) {
 /* ─── Edit Modal ─── */
 function EditModal({ user, onClose, onSave }: { user: User; onClose: () => void; onSave: (updated: User) => void }) {
   const [form, setForm] = useState({ name: user.name ?? '', email: user.email ?? '', mobile: user.mobile ?? '', role: user.role ?? 'user', status: user.status });
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    onSave({ ...user, name: form.name, email: form.email, mobile: form.mobile, role: form.role, status: form.status });
-    onClose();
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      onSave({ ...user, name: form.name, email: form.email, mobile: form.mobile, role: form.role, status: form.status });
+    } finally {
+      setSaving(false);
+      onClose();
+    }
   };
 
   return (
@@ -144,7 +150,7 @@ function EditModal({ user, onClose, onSave }: { user: User; onClose: () => void;
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
           <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: '10px', background: '#f1f5f9', border: 'none', color: '#64748b', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-          <button onClick={handleSave} style={{ flex: 1, padding: '10px', borderRadius: '10px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(99,102,241,0.25)' }}>Save Changes</button>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 1, padding: '10px', borderRadius: '10px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', color: 'white', fontSize: '13px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', boxShadow: '0 4px 12px rgba(99,102,241,0.25)', opacity: saving ? 0.7 : 1 }}>{saving ? 'Saving...' : 'Save Changes'}</button>
         </div>
       </div>
     </div>
@@ -369,9 +375,26 @@ export default function UserList() {
   const totalPages     = Math.max(1, Math.ceil(filteredUsers.length / PER_PAGE));
   const paginatedUsers = filteredUsers.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  const handleSaveEdit = (updated: User) => {
-    setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
-    // TODO: call API updateUser(updated)
+  const handleSaveEdit = async (updated: User) => {
+    try {
+      const payload = {
+        name: updated.name ?? '',
+        email: updated.email ?? '',
+        mobile: updated.mobile ?? '',
+        role: updated.role ?? 'user',
+        status: updated.status,
+      };
+      const res = await updateUser(updated.id, payload);
+      if (res.data?.status || res.data?.message) {
+        setUsers(prev => prev.map(u => u.id === updated.id ? { ...u, ...payload, status: Number(payload.status) } : u));
+        setError(null);
+      } else {
+        setError(res.data?.message || 'Failed to update user');
+      }
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e?.response?.data?.message || e?.message || 'Failed to update user');
+    }
   };
 
   const handleConfirmDelete = () => {

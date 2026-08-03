@@ -75,6 +75,7 @@ router.delete('/admin/cities/:id',             locationController.deleteCity);
 
 router.post('/register', auth.register);
 router.post('/login', auth.login);
+router.put('/user/:id', auth.updateUser);
 router.get('/users', authMiddleware, auth.getUsers);
 router.get('/userlist', UserController.userList);
 router.get('/driverlist', driver.driverList);
