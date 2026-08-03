@@ -104,7 +104,7 @@ exports.verifyOTP = async (req, res) => {
   // Check user status
   if (user[0].status === 0) {
     return res.status(403).json({
-      msg: "You are blocked. Please contact the administrator.",
+      message: "You are blocked. Please contact the administrator.",
     });
   }
 
