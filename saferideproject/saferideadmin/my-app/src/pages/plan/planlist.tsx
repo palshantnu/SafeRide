@@ -40,7 +40,7 @@ interface ModalState       { type: 'add' | 'edit' | 'delete'; plan?: Plan; }
 interface FormErrors       { plan_name?: string; plan_price?: string; token_price?: string; }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-const BASE_URL       = import.meta.env.VITE_API_URL;
+const BASE_URL       = import.meta.env.VITE_API_URL|| "https://sigiride.com/api";
 const IMAGE_BASE_URL = 'http://91.108.104.79:3000/uploads/plan/';
 const getToken       = () => localStorage.getItem('token');
 

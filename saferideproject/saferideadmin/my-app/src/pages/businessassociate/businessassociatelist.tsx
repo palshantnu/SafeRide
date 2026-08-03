@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { usePermissions } from '../../context/PermissionsContext';
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = import.meta.env.VITE_API_URL|| "https://sigiride.com/api";
 const getToken = () => localStorage.getItem('token');
 
 // ─── Types ────────────────────────────────────────────────────────────────────
