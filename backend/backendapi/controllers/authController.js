@@ -77,22 +77,32 @@ exports.verifyOTP = async (req, res) => {
     return res.status(400).json({ msg: "Invalid OTP" });
   }
 
-  // OTP verified — only now persist the fcm_token for this user
+  // Check user status
+  if (user[0].status === 0) {
+    return res.status(403).json({
+      msg: "You are blocked. Please contact the administrator.",
+    });
+  }
+
+  // OTP verified — only now persist the FCM token
   if (fcm_token) {
-    await db.query("UPDATE users SET fcm_token=? WHERE id=?", [
-      fcm_token,
-      user[0].id,
-    ]);
+    await db.query(
+      "UPDATE users SET fcm_token=? WHERE id=?",
+      [fcm_token, user[0].id]
+    );
   }
 
   const token = jwt.sign(
-    { id: user[0].id, role: user[0].role },
+    {
+      id: user[0].id,
+      role: user[0].role,
+    },
     process.env.JWT_SECRET
   );
 
   res.json({
     message: "Login success",
     token,
-    role: user[0].role
+    role: user[0].role,
   });
 };
