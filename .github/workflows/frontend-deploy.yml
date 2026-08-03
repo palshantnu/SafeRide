@@ -1,0 +1,37 @@
+name: Deploy Frontend to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy Frontend to VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          port: 22
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www
+
+            git fetch origin
+            git reset --hard origin/main
+
+            cd /var/www/saferideproject/saferideadmin/my-app
+
+            npm install
+
+            npm run build
+
+            rm -rf /var/www/frontend/my-app/dist/*
+
+            cp -r dist/* /var/www/frontend/my-app/dist/
