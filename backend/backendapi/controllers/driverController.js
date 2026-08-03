@@ -1918,6 +1918,8 @@ exports.driverList = async (req, res) => {
                 d.pincode,
                 d.wallet,
                 d.status,
+                d.status,
+                d.ba_id,
                 d.is_online
             FROM drivers d
             LEFT JOIN services s ON s.id = d.service_id
