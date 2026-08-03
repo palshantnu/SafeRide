@@ -860,13 +860,13 @@ export default function DriverList() {
                               <Car size={18} color="#3b82f6" />
                             </div>
                             <div>
-                              <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>{driver.full_name || '—'}</div>
-                              <div style={{ fontSize: '11px', color: '#94a3b8' }}>ID: #CAP-00{driver.id}</div>
+                              <div style={{ fontSize: '13px', fontWeight: 600, color: '#000' }}>{driver.full_name || '—'}</div>
+                              <div style={{ fontSize: '11px', color: '#000' }}>ID: #CAP-00{driver.id}</div>
                             </div>
                           </div>
                         </td>
                         <td style={{ padding: '14px 16px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#64748b' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#000' }}>
                             <Phone size={13} /> {driver.phone || '—'}
                           </div>
                         </td>

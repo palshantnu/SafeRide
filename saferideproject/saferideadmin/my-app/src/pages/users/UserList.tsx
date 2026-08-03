@@ -439,14 +439,14 @@ export default function UserList() {
                           <UserCircle size={20} color="#6366f1" />
                         </div>
                         <div>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>{user.name ?? <span style={{ color: '#cbd5e1', fontStyle: 'italic' }}>No Name</span>}</div>
-                          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>ID #{user.id}</div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>{user.name ?? <span style={{ color: '#000', fontStyle: 'italic' }}>No Name</span>}</div>
+                          <div style={{ fontSize: '11px', color: '#000', marginTop: '2px' }}>ID #{user.id}</div>
                         </div>
                       </div>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontSize: '13px', color: '#64748b' }}>{user.email ?? <span style={{ color: '#cbd5e1', fontStyle: 'italic' }}>No email</span>}</div>
-                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{user.mobile ?? '—'}</div>
+                      <div style={{ fontSize: '13px', color: '#000' }}>{user.email ?? <span style={{ color: '#000 ', fontStyle: 'italic' }}>No email</span>}</div>
+                      <div style={{ fontSize: '11px', color: '#000', marginTop: '2px' }}>{user.mobile ?? '—'}</div>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, ...getRoleBadge(user.role) }}>{formatRole(user.role)}</span>
