@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import type { Block, CardItem, StatItem, StepItem } from '../data/siteBlocks';
 import { DEFAULT_BRAND } from '../data/siteBlocks';
 
@@ -7,6 +8,42 @@ const STAT_COLORS = [PINK, BLUE, GREEN];
 const wrap: React.CSSProperties = { maxWidth: 1200, margin: '0 auto', padding: '0 5%' };
 const heading: React.CSSProperties = { fontSize: 'clamp(24px,4vw,40px)', fontWeight: 900, letterSpacing: '-.5px', color: '#0f172a', margin: '0 0 12px' };
 const sub: React.CSSProperties = { color: '#64748b', fontSize: 16, lineHeight: 1.7, margin: 0 };
+
+// ── Truncates long text to N lines with a Read more / Read less toggle ───────
+function ExpandableText({ children, lines = 4, style, toggleColor = PINK }: {
+  children: React.ReactNode; lines?: number; style?: React.CSSProperties; toggleColor?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [clampable, setClampable] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (el) setClampable(el.scrollHeight - 1 > el.clientHeight);
+  }, [children]);
+
+  return (
+    <div>
+      <div
+        ref={ref}
+        style={{
+          ...style,
+          ...(expanded ? null : { display: '-webkit-box', WebkitLineClamp: lines, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
+        }}
+      >
+        {children}
+      </div>
+      {clampable && (
+        <button
+          onClick={() => setExpanded(e => !e)}
+          style={{ background: 'none', border: 'none', padding: '6px 0 0', margin: 0, cursor: 'pointer', color: toggleColor, fontSize: 13.5, fontWeight: 700 }}
+        >
+          {expanded ? 'Read less' : 'Read more'}
+        </button>
+      )}
+    </div>
+  );
+}
 
 function Btn({ text, link }: { text?: string; link?: string }) {
   if (!text) return null;
@@ -67,9 +104,9 @@ export default function BlockRenderer({ block }: { block: Block }) {
           {title && <h2 style={heading}>{title}</h2>}
           {subtitle && <p style={{ ...sub, marginBottom: 16 }}>{subtitle}</p>}
           {data.body && (
-            <div style={{ color: '#475569', fontSize: 15, lineHeight: 1.8 }}>
+            <ExpandableText lines={4} style={{ color: '#475569', fontSize: 15, lineHeight: 1.8 }}>
               {data.body.split(/\n\n+/).map((para, i) => <p key={i} style={{ margin: '0 0 14px' }}>{para}</p>)}
-            </div>
+            </ExpandableText>
           )}
         </div>
       </section>
@@ -98,7 +135,11 @@ export default function BlockRenderer({ block }: { block: Block }) {
                 )}
                 <div style={{ padding: 22 }}>
                   <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a', marginBottom: 6 }}>{it.title}</div>
-                  {it.desc && <div style={{ fontSize: 14, color: '#64748b', lineHeight: 1.65 }}>{it.desc}</div>}
+                  {it.desc && (
+                    <ExpandableText lines={4} style={{ fontSize: 14, color: '#64748b', lineHeight: 1.65 }}>
+                      {it.desc}
+                    </ExpandableText>
+                  )}
                 </div>
               </div>
             ))}
