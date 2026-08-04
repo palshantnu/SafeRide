@@ -99,7 +99,7 @@ const apiPatch = (path: string, body: object) =>
 
 // ─── KYC Documents ──────────────────────────────────────────────────────────────
 // NOTE: backend stores only image filenames; adjust this base if the upload folder differs.
-const DOC_IMAGE_BASE = 'http://91.108.104.79:3000/uploads/documents/';
+const DOC_IMAGE_BASE = 'https://sigiride.com/uploads/documents/';
 // Admin id sent as `verified_by` (login only stores a token, so we fall back to 1 like the driver flow).
 const ADMIN_ID = Number(localStorage.getItem('admin_id')) || 1;
 

@@ -27,7 +27,7 @@ type ModalState =
   | null;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-const IMAGE_BASE_URL = 'http://91.108.104.79:3000/uploads/banners/';
+const IMAGE_BASE_URL = 'https://sigiride.com/uploads/banners/';
 
 const getImageUrl = (image?: string | null): string | null => {
   if (!image) return null;

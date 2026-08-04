@@ -41,7 +41,7 @@ interface FormErrors       { plan_name?: string; plan_price?: string; token_pric
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const BASE_URL       = import.meta.env.VITE_API_URL|| "https://sigiride.com/api";
-const IMAGE_BASE_URL = 'http://91.108.104.79:3000/uploads/plan/';
+const IMAGE_BASE_URL = 'https://sigiride.com/uploads/plan/';
 const getToken       = () => localStorage.getItem('token');
 
 const apiGet = (path: string) =>
