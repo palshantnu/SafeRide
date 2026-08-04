@@ -1037,6 +1037,7 @@ exports.getBusinessAssociates = async (req, res) => {
                 ba.id,
                 ba.ba_name,
                 ba.ba_mobile,
+                ba.pincode,
                 ba.status,
                 ba.created_at,
                 COALESCE(bd.status, 'not_uploaded') AS kyc_status,

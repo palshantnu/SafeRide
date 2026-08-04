@@ -850,7 +850,7 @@ export default function DriverList() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #f1f5f9' }}>
-                      {['Captain', 'Phone', 'Service', 'Sub Service', 'Business Associate', 'Duty', 'Status', 'Actions'].map(h => (
+                      {['Captain', 'Phone','Pincode', 'Service', 'Sub Service', 'Business Associate', 'Duty', 'Status', 'Actions'].map(h => (
                         <th key={h} style={{ padding: '14px 16px', fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', textAlign: h === 'Actions' ? 'right' : 'left' }}>{h}</th>
                       ))}
                     </tr>
@@ -872,6 +872,12 @@ export default function DriverList() {
                         <td style={{ padding: '14px 16px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#000' }}>
                             <Phone size={13} /> {driver.phone || '—'}
+                          </div>
+                        </td>
+                        <td style={{ padding: '14px 16px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#000' }}>
+                            {/* <Phone size={13} />  */}
+                            {driver.pincode || '—'}
                           </div>
                         </td>
                         <td style={{ padding: '14px 16px' }}>

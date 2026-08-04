@@ -24,6 +24,7 @@ interface BA {
   id: number;
   ba_name: string;
   ba_mobile: string;
+  pincode: string;
   status?: number;
   kyc_status?: string | null; // 'pending' | 'approved' | 'rejected' | null (not submitted)
   created_at?: string;
@@ -617,6 +618,7 @@ export default function BAList() {
     setFetchError(null);
     try {
       const json = await apiGet('/bussinessassociates/list');
+      console.log('json', json);
       if (json.status) setBaList(json.data);
       else setFetchError(json.message || 'Failed to fetch');
     } catch (e: unknown) {
@@ -1021,7 +1023,7 @@ export default function BAList() {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #f1f5f9' }}>
-              {['#', 'Partner Name', 'Mobile', 'Services', 'Status', 'KYC', 'Captains', 'Actions'].map((h) => (
+              {['#', 'Partner Name', 'Mobile','Pincode', 'Services', 'Status', 'KYC', 'Captains', 'Actions'].map((h) => (
                 <th key={h} style={{ padding: '12px 16px', fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
               ))}
             </tr>
@@ -1045,6 +1047,12 @@ export default function BAList() {
                 <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '13px' }}>
                     <Phone size={12} color="#94a3b8" /> {ba.ba_mobile}
+                  </div>
+                </td>
+                <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '13px' }}>
+                    {/* <Phone size={12} color="#94a3b8" /> */}
+                     {ba.pincode}
                   </div>
                 </td>
                 <td style={{ padding: '13px 16px' }}>
