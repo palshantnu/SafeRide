@@ -243,6 +243,7 @@ router.patch ('/planstatus/:id/status',service.togglePlanStatus);
 
 //-----------------------------------------------------Admin_Api-----------------------------------------------------------------------------------//
 router.get('/all/bookinghistory', bookingController.getBookingHistory);
+router.get('/admin/bookings/:id/topups', bookingController.getBookingTopups);
 router.delete('/booking/destroy/:booking_id', bookingController.destroyBooking);
 router.get('/admin/withdrawal-requests', bookingController.getWithdrawalRequests);
 router.patch('/admin/withdrawal-requests/:id/status', bookingController.updateWithdrawalStatus);

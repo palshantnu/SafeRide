@@ -64,6 +64,7 @@ export const deleteBussinessAssociate  = (id: number)               => API.delet
 
 // Booking history — all support: status, service_id, from_date, to_date, search, page, limit
 export const getAllBookinghistory    = (params?: Record<string, unknown>) => API.get('all/bookinghistory', { params });
+export const getBookingTopups        = (id: string | number)              => API.get(`/admin/bookings/${id}/topups`);
 export const getAdminNotifications   = () => API.get('/admin/admin-notifications');
 export const getBookingRejections    = () => API.get('/admin/booking-rejections');
 export const getAllDriverDocuments   = () => API.get('/admin/driver-documents');

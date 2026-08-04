@@ -250,13 +250,29 @@ exports.getBookingHistory = async (req, res) => {
                 d.id AS driver_id, d.full_name AS driver_name, d.phone AS driver_mobile,
                 s.title AS service_name,
                 ss.title AS sub_service_name,
-                p.plan_name, p.plan_price
+                p.plan_name, p.plan_price,
+                COALESCE(bt.topup_count, 0)                 AS topup_count,
+                COALESCE(bt.topup_paid_amount, 0)            AS topup_paid_amount,
+                COALESCE(bt.topup_pending_amount, 0)         AS topup_pending_amount,
+                COALESCE(bt.topup_captain_commission, 0)     AS topup_captain_commission,
+                COALESCE(bt.topup_company_commission, 0)     AS topup_company_commission
             FROM bookings b
             LEFT JOIN users u ON b.user_id = u.id
             LEFT JOIN drivers d ON b.driver_id = d.id
             LEFT JOIN services s ON b.service_id = s.id
             LEFT JOIN sub_services ss ON ss.id = b.sub_service_id
             LEFT JOIN plans p ON b.plan_id = p.id
+            LEFT JOIN (
+                SELECT
+                    booking_id,
+                    COUNT(*) AS topup_count,
+                    SUM(CASE WHEN status = 'PAID'    THEN topup_amount       ELSE 0 END) AS topup_paid_amount,
+                    SUM(CASE WHEN status = 'PENDING' THEN topup_amount       ELSE 0 END) AS topup_pending_amount,
+                    SUM(CASE WHEN status = 'PAID'    THEN captain_commission ELSE 0 END) AS topup_captain_commission,
+                    SUM(CASE WHEN status = 'PAID'    THEN company_commission ELSE 0 END) AS topup_company_commission
+                FROM booking_topups
+                GROUP BY booking_id
+            ) bt ON bt.booking_id = b.id
             ${whereClause}
             ORDER BY b.id DESC
             LIMIT ${limitNum} OFFSET ${offset}
@@ -271,6 +287,34 @@ exports.getBookingHistory = async (req, res) => {
 
     } catch (error) {
         console.error("getBookingHistory Error:", error);
+        return res.status(500).json({ status: false, message: error.message });
+    }
+};
+
+// ─── ADMIN: topup line-items for a single booking (booking_topups.booking_id = bookings.id) ──
+exports.getBookingTopups = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const [rows] = await db.execute(`
+            SELECT
+                id, booking_id, extra_km, price_per_km, topup_amount,
+                captain_commission, company_commission, reason, status,
+                payment_mode, topup_otp, otp_verified,
+                created_at, paid_at, updated_at
+            FROM booking_topups
+            WHERE booking_id = ?
+            ORDER BY id DESC
+        `, [id]);
+
+        return res.json({
+            status: true,
+            message: "Booking topups fetched successfully",
+            total: rows.length,
+            data: rows
+        });
+    } catch (error) {
+        console.error("getBookingTopups Error:", error);
         return res.status(500).json({ status: false, message: error.message });
     }
 };

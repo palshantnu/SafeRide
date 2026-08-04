@@ -3,9 +3,9 @@ import {
   Search, ChevronLeft, ChevronRight,
   CheckCircle2, X, MapPin, User,
   Car, Calendar, Hash, RefreshCw, Filter, Phone,
-  ShoppingBag, XCircle, Activity, Eye, Navigation,
+  ShoppingBag, XCircle, Activity, Eye, Navigation, Zap,
 } from 'lucide-react';
-import { getAllBookinghistory } from '../../services/api';
+import { getAllBookinghistory, getBookingTopups } from '../../services/api';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 interface Booking {
@@ -45,6 +45,29 @@ interface Booking {
   sub_service_name: string | null;
   plan_name: string | null;
   plan_price: string | null;
+  topup_count: number;
+  topup_paid_amount: string | number | null;
+  topup_pending_amount: string | number | null;
+  topup_captain_commission: string | number | null;
+  topup_company_commission: string | number | null;
+}
+
+interface BookingTopup {
+  id: number;
+  booking_id: number;
+  extra_km: string;
+  price_per_km: string;
+  topup_amount: string;
+  captain_commission: string;
+  company_commission: string;
+  reason: string | null;
+  status: string;
+  payment_mode: string | null;
+  topup_otp: number | null;
+  otp_verified: number;
+  created_at: string;
+  paid_at: string | null;
+  updated_at: string;
 }
 
 // ─── STATUS CONFIG ─────────────────────────────────────────────────────────────
@@ -69,8 +92,29 @@ const fmtFull  = (d?: string | null) => d ? new Date(d).toLocaleString('en-IN', 
 const fmtAmt   = (v?: string | null) => v && parseFloat(v) > 0 ? `₹${parseFloat(v).toFixed(2)}` : v ? `₹${v}` : '—';
 
 // ─── DETAIL MODAL ─────────────────────────────────────────────────────────────
+const TOPUP_STATUS_CONFIG: Record<string, { bg: string; color: string }> = {
+  PAID:     { bg: '#d1fae5', color: '#065f46' },
+  PENDING:  { bg: '#fef3c7', color: '#92400e' },
+  CANCELLED:{ bg: '#fff1f2', color: '#991b1b' },
+  EXPIRED:  { bg: '#f1f5f9', color: '#64748b' },
+};
+const getTopupStatus = (s?: string) => TOPUP_STATUS_CONFIG[(s || '').toUpperCase()] || { bg: '#f1f5f9', color: '#475569' };
+
 function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => void }) {
   const st = getStatus(booking.status);
+  const [topups, setTopups] = useState<BookingTopup[]>([]);
+  const [topupsLoading, setTopupsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!booking.topup_count) return;
+    let alive = true;
+    setTopupsLoading(true);
+    getBookingTopups(booking.id)
+      .then(res => { if (alive) setTopups((res as { data: { data?: BookingTopup[] } }).data?.data || []); })
+      .catch(() => { if (alive) setTopups([]); })
+      .finally(() => { if (alive) setTopupsLoading(false); });
+    return () => { alive = false; };
+  }, [booking.id, booking.topup_count]);
 
   const Row = ({ label, value, highlight }: { label: string; value: React.ReactNode; highlight?: boolean }) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '9px 0', borderBottom: '1px solid #f1f5f9' }}>
@@ -165,6 +209,41 @@ function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => vo
               </div>
             ))}
           </div>
+
+          {/* Topups */}
+          {booking.topup_count > 0 && (
+            <>
+              <Section title={`Topups (${booking.topup_count})`} color="#b45309" bg="#fffbeb" />
+              {topupsLoading ? (
+                <div style={{ padding: '14px 0', fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>Loading topups...</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '4px' }}>
+                  {topups.map(t => {
+                    const tst = getTopupStatus(t.status);
+                    return (
+                      <div key={t.id} style={{ background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: '10px', padding: '10px 12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 800, color: '#92400e' }}>+₹{parseFloat(t.topup_amount).toFixed(2)}</span>
+                          <span style={{ background: tst.bg, color: tst.color, fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '10px' }}>{t.status}</span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#78716c' }}>
+                          {t.extra_km} km × ₹{t.price_per_km}/km {t.reason ? `· ${t.reason}` : ''}
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#a8a29e', marginTop: '3px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                          <span>{t.payment_mode || '—'}</span>
+                          <span>{fmtFull(t.paid_at || t.created_at)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <Row label="Total Topup Paid" value={<span style={{ color: '#b45309', fontWeight: 700 }}>{fmtAmt(String(booking.topup_paid_amount))}</span>} />
+              {Number(booking.topup_pending_amount) > 0 && (
+                <Row label="Pending Topup" value={<span style={{ color: '#dc2626', fontWeight: 700 }}>{fmtAmt(String(booking.topup_pending_amount))}</span>} />
+              )}
+            </>
+          )}
 
           {/* Booking Info */}
           <Section title="Booking Info" />
@@ -291,6 +370,7 @@ export default function BookingHistory() {
   const completed = useMemo(() => bookings.filter(b => ['COMPLETED', 'DROPPED', 'BALANCE_PAID', 'PAYMENT_DONE'].includes(b.status)).length, [bookings]);
   const cancelled = useMemo(() => bookings.filter(b => b.status === 'CANCELLED').length, [bookings]);
   const active    = useMemo(() => bookings.filter(b => ['SEARCHING', 'ACCEPTED', 'ARRIVED', 'STARTED', 'PICKEDUP'].includes(b.status)).length, [bookings]);
+  const withTopup = useMemo(() => bookings.filter(b => b.topup_count > 0).length, [bookings]);
 
   const resetFilters = () => { setSearch(''); setStatusFilter(''); setTypeFilter(''); setPage(1); };
   const hasFilter    = search || statusFilter || typeFilter;
@@ -329,6 +409,7 @@ export default function BookingHistory() {
           <StatCard label="Completed"      count={completed}       bg="#d1fae5" color="#059669" icon={<CheckCircle2 size={18} color="#059669" />} />
           <StatCard label="Cancelled"      count={cancelled}       bg="#fee2e2" color="#dc2626" icon={<XCircle size={18} color="#dc2626" />} />
           <StatCard label="Active / Live"  count={active}          bg="#dbeafe" color="#2563eb" icon={<Activity size={18} color="#2563eb" />} />
+          <StatCard label="With Topup"     count={withTopup}       bg="#fffbeb" color="#b45309" icon={<Zap size={18} color="#b45309" />} />
         </div>
 
         {/* ── Filters ── */}
@@ -398,6 +479,7 @@ export default function BookingHistory() {
                     { label: 'Route',          align: 'left'   },
                     { label: 'Service / Sub',  align: 'left'   },
                     { label: 'Amount',         align: 'right'  },
+                    { label: 'Topup',          align: 'right'  },
                     { label: 'Payment',        align: 'center' },
                     { label: 'Date',           align: 'center' },
                     { label: 'Status',         align: 'center' },
@@ -413,7 +495,7 @@ export default function BookingHistory() {
               <tbody>
                 {loading && Array.from({ length: PER_PAGE }).map((_, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    {Array.from({ length: 11 }).map((__, j) => (
+                    {Array.from({ length: 12 }).map((__, j) => (
                       <td key={j} style={{ padding: '14px' }}>
                         <div style={{ height: '13px', borderRadius: '6px', background: '#f1f5f9', animation: 'pulse 1.5s ease infinite', width: j === 0 ? '30%' : '70%' }} />
                       </td>
@@ -423,7 +505,7 @@ export default function BookingHistory() {
 
                 {!loading && paginated.length === 0 && (
                   <tr>
-                    <td colSpan={11} style={{ padding: '56px', textAlign: 'center' }}>
+                    <td colSpan={12} style={{ padding: '56px', textAlign: 'center' }}>
                       <Search size={32} color="#e2e8f0" style={{ display: 'block', margin: '0 auto 10px' }} />
                       <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: 500 }}>
                         {hasFilter ? 'No bookings match your filters.' : 'No bookings found.'}
@@ -520,6 +602,20 @@ export default function BookingHistory() {
                         </div>
                         {b.platform_fee && parseFloat(b.platform_fee) > 0 && (
                           <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>+₹{b.platform_fee} fee</div>
+                        )}
+                      </td>
+
+                      {/* Topup */}
+                      <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                        {b.topup_count > 0 ? (
+                          <>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fffbeb', color: '#b45309', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '20px' }}>
+                              <Zap size={10} /> +{fmtAmt(String(b.topup_paid_amount))}
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>{b.topup_count} topup{b.topup_count > 1 ? 's' : ''}</div>
+                          </>
+                        ) : (
+                          <span style={{ color: '#cbd5e1', fontSize: '11px' }}>—</span>
                         )}
                       </td>
 
