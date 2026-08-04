@@ -204,6 +204,7 @@ export default function DriverList() {
     setLoading(true); setError(null);
     try {
       const res = await getAllDrivers() as { data: { status: boolean; data: Driver[]; message?: string } };
+      console.log('Fetched drivers:', res.data);
       if (res.data.status) setDrivers(res.data.data);
       else setError(res.data.message || 'Failed to fetch');
     } catch { setError('Unable to connect to server'); }
@@ -384,7 +385,7 @@ export default function DriverList() {
 
   // Business associate a captain belongs to (backend field name may vary → try common ones).
   const getBAName = (driver: Driver): string =>
-    driver.ba_name || driver.business_associate_name || driver.business_name || '';
+    driver.ba_id || driver.business_associate_name || driver.business_name || '';
 
   // True when the captain's wallet is below the minimum required by their sub service.
   const isLowWallet = (driver: Driver): boolean => {
@@ -457,7 +458,8 @@ export default function DriverList() {
             {/* Business Associate */}
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '13px', borderBottom: '1px solid #eef2f7' }}>
               <span style={{ color: '#64748b', fontWeight: 600 }}>💼 Business Associate</span>
-              <span style={{ background: getBAName(driver) ? '#ede9fe' : '#f1f5f9', color: getBAName(driver) ? '#6d28d9' : '#94a3b8', fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '6px' }}>{getBAName(driver) || 'Direct'}</span>
+              <span style={{ background: getBAName(driver) ? '#ede9fe' : '#f1f5f9', color: getBAName(driver) ? '#6d28d9' : '#94a3b8', fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '6px' }}>
+                {getBAName(driver)? ' BA Captain' : 'Direct'}</span>
             </div>
             {/* Status */}
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '13px', borderBottom: '1px solid #eef2f7' }}>
@@ -882,7 +884,12 @@ export default function DriverList() {
                         </td>
                         <td style={{ padding: '14px 16px' }}>
                           {getBAName(driver)
-                            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#ede9fe', color: '#6d28d9', fontSize: '12px', fontWeight: 600, padding: '4px 10px', borderRadius: '8px' }}><Briefcase size={12} /> {getBAName(driver)}</span>
+                            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0px', background: '#ede9fe', color: '#6d28d9', fontSize: '12px', fontWeight: 600, padding: '4px 10px', borderRadius: '8px' }}>
+                              
+                              {/* <Briefcase size={12} />  */}
+                            {/* {getBAName(driver)} */}
+                            BA Captain
+                            </span>
                             : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#f1f5f9', color: '#94a3b8', fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '8px' }}>Direct</span>}
                         </td>
                         <td style={{ padding: '14px 16px' }}>
