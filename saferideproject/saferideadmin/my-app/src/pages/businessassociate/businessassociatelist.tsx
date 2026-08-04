@@ -238,6 +238,10 @@ function MobileBACard({
               <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '12px' }}>
                 <Phone size={12} color="#94a3b8" /> {ba.ba_mobile}
               </div>
+              <div style={{ marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '12px' }}>
+                {/* <Phone size={12} color="#94a3b8" /> */}
+                 {ba.pincode}
+              </div>
             </div>
             <span style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 700 }}>#{index}</span>
           </div>
