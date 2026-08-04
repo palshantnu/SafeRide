@@ -385,7 +385,9 @@ export default function DriverList() {
 
   // Business associate a captain belongs to (backend field name may vary → try common ones).
   const getBAName = (driver: Driver): string =>
-    driver.ba_id || driver.business_associate_name || driver.business_name || '';
+  driver.business_associate_name ||
+  driver.business_name ||
+  (driver.ba_id != null ? String(driver.ba_id) : '');
 
   // True when the captain's wallet is below the minimum required by their sub service.
   const isLowWallet = (driver: Driver): boolean => {
