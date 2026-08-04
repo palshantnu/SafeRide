@@ -25,6 +25,7 @@ interface Driver {
   ba_name?: string | null;
   business_name?: string | null;
   business_associate_name?: string | null;
+  created_at?: string | null;
 }
 
 interface Booking {
@@ -157,6 +158,13 @@ function FormFields({ formData, setFormData, services, subServices }: FormFields
     </div>
   );
 }
+
+const formatDate = (dateStr?: string | null) => {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
 
 // ─── MOCK FETCH HELPERS (replace with real API calls) ────────────────────────
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
@@ -463,6 +471,11 @@ export default function DriverList() {
               <span style={{ background: getBAName(driver) ? '#ede9fe' : '#f1f5f9', color: getBAName(driver) ? '#6d28d9' : '#94a3b8', fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '6px' }}>
                 {getBAName(driver)? ' BA Captain' : 'Direct'}</span>
             </div>
+            {/* Joined */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '13px', borderBottom: '1px solid #eef2f7' }}>
+              <span style={{ color: '#64748b', fontWeight: 600 }}>🗓️ Joined</span>
+              <span style={{ color: '#1e293b', fontWeight: 500 }}>{formatDate(driver.created_at)}</span>
+            </div>
             {/* Status */}
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '13px', borderBottom: '1px solid #eef2f7' }}>
               <span style={{ color: '#64748b', fontWeight: 600 }}>📊 Status</span>
@@ -728,6 +741,7 @@ export default function DriverList() {
             ['Wallet', `₹${selectedDriver.wallet ?? 0}`],
             ['Status', selectedDriver.status],
             ['Online', selectedDriver.is_online ? 'Yes' : 'No'],
+            ['Joined', formatDate(selectedDriver.created_at)],
           ] as [string, string][]).map(([label, value]) => (
             <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9', fontSize: '13px', flexWrap: 'wrap', gap: '8px' }}>
               <span style={{ color: '#94a3b8', fontWeight: 600 }}>{label}</span>
@@ -850,7 +864,7 @@ export default function DriverList() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #f1f5f9' }}>
-                      {['Captain', 'Phone','Pincode', 'Service', 'Sub Service', 'Business Associate', 'Duty', 'Status', 'Actions'].map(h => (
+                      {['Captain', 'Phone','Pincode', 'Service', 'Sub Service', 'Business Associate', 'Duty', 'Status', 'Joined', 'Actions'].map(h => (
                         <th key={h} style={{ padding: '14px 16px', fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', textAlign: h === 'Actions' ? 'right' : 'left' }}>{h}</th>
                       ))}
                     </tr>
@@ -914,6 +928,7 @@ export default function DriverList() {
                             <option value="rejected">Rejected</option>
                           </select>
                         </td>
+                        <td style={{ padding: '14px 16px', fontSize: '12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(driver.created_at)}</td>
                         <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: '5px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                             <a href={`tel:${driver.phone}`} title="Call" style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#475569', padding: '7px', borderRadius: '9px', display: 'flex', textDecoration: 'none' }}>
@@ -942,7 +957,7 @@ export default function DriverList() {
                         </td>
                       </tr>
                     )) : (
-                      <tr><td colSpan={8} style={{ padding: '60px 20px', textAlign: 'center', color: '#94a3b8' }}>No captains found.</td></tr>
+                      <tr><td colSpan={10} style={{ padding: '60px 20px', textAlign: 'center', color: '#94a3b8' }}>No captains found.</td></tr>
                     )}
                   </tbody>
                 </table>

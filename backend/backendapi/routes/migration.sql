@@ -44,3 +44,9 @@ CREATE TABLE IF NOT EXISTS `user_recharges` (
   KEY `user_id` (`user_id`),
   CONSTRAINT `user_recharges_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 7. Add created_at (joining date) to drivers table
+-- Run `DESCRIBE drivers;` first — only run this ALTER if created_at is not already listed
+-- (your MySQL version doesn't support ADD COLUMN IF NOT EXISTS)
+ALTER TABLE drivers
+  ADD COLUMN created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP;
