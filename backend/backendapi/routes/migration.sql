@@ -50,3 +50,16 @@ CREATE TABLE IF NOT EXISTS `user_recharges` (
 -- (your MySQL version doesn't support ADD COLUMN IF NOT EXISTS)
 ALTER TABLE drivers
   ADD COLUMN created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP;
+
+-- 8. Create app_banners table (app home-screen slider — Settings > App Slider Banners)
+CREATE TABLE IF NOT EXISTS `app_banners` (
+  `id`         INT NOT NULL AUTO_INCREMENT,
+  `title`      VARCHAR(255) DEFAULT NULL,
+  `image`      VARCHAR(255) DEFAULT NULL,
+  `link_url`   VARCHAR(500) DEFAULT NULL,
+  `position`   INT DEFAULT NULL,
+  `status`     TINYINT(1) NOT NULL DEFAULT '1',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -10,6 +10,7 @@ const UserController = require("../controllers/UserapiController");
 const pagesController = require("../controllers/pagesController");
 const landingController = require("../controllers/landingController");
 const popupController = require("../controllers/popupController");
+const appBannerController = require("../controllers/appBannerController");
 const contactController = require("../controllers/contactController");
 const notificationController = require("../controllers/notificationController");
 const adminNotificationController = require("../controllers/adminNotificationController");
@@ -27,6 +28,7 @@ const uploadplan = require('../middleware/uploadplan');
 const uploadBAProfile = require('../middleware/uploadBAProfile');
 const uploadLanding = require('../middleware/uploadLanding');
 const uploadPopup = require('../middleware/uploadPopup');
+const uploadAppBanner = require('../middleware/uploadAppBanner');
 const uploadNotification = require('../middleware/uploadNotification');
 const selfSharingController = require('../controllers/selfSharingController');
 const parcelController = require('../controllers/parcelController');
@@ -375,6 +377,16 @@ router.post('/admin/popups', uploadPopup.single('image'), popupController.create
 router.put('/admin/popups/:id', uploadPopup.single('image'), popupController.updatePopup);
 router.patch('/admin/popups/:id/status', popupController.togglePopupStatus);
 router.delete('/admin/popups/:id', popupController.deletePopup);
+
+//-------------------------------------------------App Slider Banners (CMS)-------------------------------------------------//
+// public
+router.get('/app-banners', appBannerController.getAppBanners);
+// admin
+router.get('/admin/app-banners', appBannerController.adminGetAllAppBanners);
+router.post('/admin/app-banners', uploadAppBanner.single('image'), appBannerController.createAppBanner);
+router.put('/admin/app-banners/:id', uploadAppBanner.single('image'), appBannerController.updateAppBanner);
+router.patch('/admin/app-banners/:id/status', appBannerController.toggleAppBannerStatus);
+router.delete('/admin/app-banners/:id', appBannerController.deleteAppBanner);
 
 //-------------------------------------------------Notification Messages (CMS)----------------------------------------------//
 // public  (audience = 'user' or 'captain')
