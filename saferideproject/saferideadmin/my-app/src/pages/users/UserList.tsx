@@ -15,8 +15,12 @@ interface User {
   mobile: string | null;
   role: string | null;
   status: number;
+  wallet?: number | string | null;
   created_at: string | null;
 }
+
+const LOW_BALANCE_THRESHOLD = -20;
+const isLowBalance = (user: User) => Number(user.wallet ?? 0) <= LOW_BALANCE_THRESHOLD;
 
 const PER_PAGE = 5;
 
@@ -469,10 +473,15 @@ export default function UserList() {
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ fontSize: '13px', color: '#000' }}>{user.email ?? <span style={{ color: '#000 ', fontStyle: 'italic' }}>No email</span>}</div>
-                      <div style={{ fontSize: '11px', color: '#000', marginTop: '2px' }}>{user.mobile ?? '—'}</div>
+                      <div style={{ fontSize: '11px', color: isLowBalance(user) ? '#ef4444' : '#000', fontWeight: isLowBalance(user) ? 700 : 400, marginTop: '2px' }}>{user.mobile ?? '—'}</div>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, ...getRoleBadge(user.role) }}>{formatRole(user.role)}</span>
+                      <span style={{
+                        padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                        ...(isLowBalance(user)
+                          ? { background: '#ef4444', color: '#fff' }
+                          : getRoleBadge(user.role)),
+                      }}>{formatRole(user.role)}</span>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, background: user.status === 1 ? '#d1fae5' : '#f1f5f9', color: user.status === 1 ? '#065f46' : '#64748b' }}>

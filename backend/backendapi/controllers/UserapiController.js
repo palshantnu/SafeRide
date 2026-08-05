@@ -792,13 +792,14 @@ exports.userCurrentBooking = async (req, res) => {
     try {
 
         const [users] = await db.query(`
-            SELECT 
+            SELECT
                 id,
                 name,
                 email,
                 mobile,
                 role,
                 status,
+                wallet,
                 created_at
             FROM users
             WHERE role = 'user'
