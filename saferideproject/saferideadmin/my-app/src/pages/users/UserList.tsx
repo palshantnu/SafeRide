@@ -450,7 +450,7 @@ export default function UserList() {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #f1f5f9' }}>
-                  {['User', 'Contact', 'Role', 'Status', 'Joined', 'Actions'].map(h => (
+                  {['User', 'Contact', 'Role', 'Balance', 'Status', 'Joined', 'Actions'].map(h => (
                     <th key={h} style={{ padding: '12px 16px', fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -484,6 +484,12 @@ export default function UserList() {
                       }}>{formatRole(user.role)}</span>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
+                      <span style={{
+                        fontSize: '13px', fontWeight: 700,
+                        color: isLowBalance(user) ? '#ef4444' : '#1e293b',
+                      }}>₹{Number(user.wallet ?? 0).toFixed(2)}</span>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, background: user.status === 1 ? '#d1fae5' : '#f1f5f9', color: user.status === 1 ? '#065f46' : '#64748b' }}>
                         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: user.status === 1 ? '#10b981' : '#94a3b8' }} />
                         {user.status === 1 ? 'Active' : 'Inactive'}
@@ -510,7 +516,7 @@ export default function UserList() {
                     </td>
                   </tr>
                 )) : (
-                  <tr><td colSpan={6} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No users found matching your search.</td></tr>
+                  <tr><td colSpan={7} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No users found matching your search.</td></tr>
                 )}
               </tbody>
             </table>
