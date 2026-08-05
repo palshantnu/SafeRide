@@ -738,8 +738,9 @@ exports.adminGetAllBookings = async (req, res) => {
                    ob.total_amount AS total_fare,
                    ob.schedule_datetime AS schedule_date,
                    s.title AS service_name, ss.title AS sub_service_name, p.plan_name,
-                   u.name AS user_name, u.mobile AS user_mobile,
-                   d.full_name AS driver_name, d.phone AS driver_phone, d.phone AS driver_mobile
+                   p.plan_captain_commission, p.plan_company_commission,
+                   u.name AS user_name, u.mobile AS user_mobile, u.wallet AS user_wallet,
+                   d.full_name AS driver_name, d.phone AS driver_phone, d.phone AS driver_mobile, d.wallet AS driver_wallet
             FROM onspot_bookings ob
             LEFT JOIN services s ON s.id = ob.service_id
             LEFT JOIN sub_services ss ON ss.id = ob.sub_service_id
@@ -751,11 +752,19 @@ exports.adminGetAllBookings = async (req, res) => {
             LIMIT ${limitNum} OFFSET ${offset}
         `, values);
 
+        // Same plan-driven split as parcel; on-spot also has no persisted cancellation-fee column.
+        const data = rows.map(b => ({
+            ...b,
+            total_amount: parseFloat(b.total_fare || 0),
+            company_amount: parseFloat(b.plan_company_commission || 0),
+            captain_amount: parseFloat(b.plan_captain_commission || 0),
+        }));
+
         return res.json({
             status: true,
             message: "On-spot bookings fetched",
             pagination: { total, page: pageNum, limit: limitNum, total_pages: Math.ceil(total / limitNum) },
-            data: rows
+            data
         });
     } catch (error) {
         console.error("onspot adminGetAllBookings error:", error);

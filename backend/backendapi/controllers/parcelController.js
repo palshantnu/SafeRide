@@ -940,8 +940,9 @@ exports.adminGetAllBookings = async (req, res) => {
                    pb.actual_amount AS actual_fare,
                    TIMESTAMP(pb.pickup_date, pb.pickup_time) AS schedule_date,
                    s.title AS service_name, ss.title AS sub_service_name, p.plan_name,
-                   u.name AS user_name, u.mobile AS user_mobile,
-                   d.full_name AS driver_name, d.phone AS driver_phone, d.phone AS driver_mobile
+                   p.plan_captain_commission, p.plan_company_commission,
+                   u.name AS user_name, u.mobile AS user_mobile, u.wallet AS user_wallet,
+                   d.full_name AS driver_name, d.phone AS driver_phone, d.phone AS driver_mobile, d.wallet AS driver_wallet
             FROM parcel_bookings pb
             LEFT JOIN services s ON s.id = pb.service_id
             LEFT JOIN sub_services ss ON ss.id = pb.sub_service_id
@@ -953,11 +954,20 @@ exports.adminGetAllBookings = async (req, res) => {
             LIMIT ${limitNum} OFFSET ${offset}
         `, values);
 
+        // Company/captain split comes straight off the plan (parcel has no cancellation-fee
+        // concept in the schema today — cancelled bookings just flip status, nothing is charged).
+        const data = rows.map(b => ({
+            ...b,
+            total_amount: parseFloat(b.actual_fare || b.total_fare || 0),
+            company_amount: parseFloat(b.plan_company_commission || 0),
+            captain_amount: parseFloat(b.plan_captain_commission || 0),
+        }));
+
         return res.json({
             status: true,
             message: "Parcel bookings fetched",
             pagination: { total, page: pageNum, limit: limitNum, total_pages: Math.ceil(total / limitNum) },
-            data: rows
+            data
         });
     } catch (error) {
         console.error("parcel adminGetAllBookings error:", error);

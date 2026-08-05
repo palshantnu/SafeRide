@@ -1056,10 +1056,11 @@ exports.adminGetAllBookings = async (req, res) => {
                    st.to_city AS drop_city,
                    st.departure_time AS schedule_date,
                    s.title AS service_name,
-                   u.name AS user_name, u.mobile AS user_mobile,
+                   u.name AS user_name, u.mobile AS user_mobile, u.wallet AS user_wallet,
                    COALESCE(assigned_driver.id, CASE WHEN st.creator_type = 'DRIVER' THEN creator_driver.id END) AS driver_id,
                    COALESCE(assigned_driver.full_name, CASE WHEN st.creator_type = 'DRIVER' THEN creator_driver.full_name END) AS driver_name,
-                   COALESCE(assigned_driver.phone, CASE WHEN st.creator_type = 'DRIVER' THEN creator_driver.phone END) AS driver_mobile
+                   COALESCE(assigned_driver.phone, CASE WHEN st.creator_type = 'DRIVER' THEN creator_driver.phone END) AS driver_mobile,
+                   COALESCE(assigned_driver.wallet, CASE WHEN st.creator_type = 'DRIVER' THEN creator_driver.wallet END) AS driver_wallet
             FROM sigi_bookings sb
             JOIN sigi_trips st ON st.id = sb.trip_id
             LEFT JOIN services s ON s.id = st.service_id
@@ -1071,11 +1072,22 @@ exports.adminGetAllBookings = async (req, res) => {
             LIMIT ${limitNum} OFFSET ${offset}
         `, values);
 
+        // Self-sharing has no commission concept in the schema — the full fare is the
+        // captain's (or trip creator's) own money, nothing is modeled as a company cut.
+        // Cancellation charges are computed on-the-fly elsewhere (calcCancelCharge) and never
+        // persisted, so they can't be reported here without re-running that calculation.
+        const data = rows.map(b => ({
+            ...b,
+            total_amount: parseFloat(b.total_fare || 0),
+            company_amount: 0,
+            captain_amount: parseFloat(b.total_fare || 0),
+        }));
+
         return res.json({
             status: true,
             message: "All bookings fetched",
             pagination: { total, page: pageNum, limit: limitNum, total_pages: Math.ceil(total / limitNum) },
-            data: rows
+            data
         });
 
     } catch (error) {
