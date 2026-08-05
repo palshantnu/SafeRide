@@ -12,7 +12,8 @@ interface MoneyBooking {
   id: number;
   booking_id: string;
   created_at: string;
-  category: string;
+  service_name: string;
+  sub_service_name?: string | null;
   payment_mode: 'CASH' | 'ONLINE' | string | null;
   paid: number;
   status: string;
@@ -65,7 +66,8 @@ const mapRide = (raw: RawRow): MoneyBooking => ({
   id: Number(raw.id),
   booking_id: String(raw.booking_id ?? ''),
   created_at: String(raw.created_at ?? ''),
-  category: String(raw.sub_service_name || raw.service_name || '—'),
+  service_name: String(raw.service_name || '—'),
+  sub_service_name: (raw.sub_service_name as string | null) ?? null,
   payment_mode: (raw.payment_mode as string | null) ?? null,
   paid: Number(raw.paid ?? 0),
   status: String(raw.status ?? ''),
@@ -88,7 +90,8 @@ const mapGeneric = (raw: RawRow, category: string): MoneyBooking => ({
   id: Number(raw.id),
   booking_id: String(raw.booking_id ?? ''),
   created_at: String(raw.created_at ?? ''),
-  category,
+  service_name: String(raw.service_name || category),
+  sub_service_name: (raw.sub_service_name as string | null) ?? null,
   payment_mode: (raw.payment_mode as string | null) ?? null,
   paid: Number(raw.paid ?? raw.token_paid ?? 0),
   status: String(raw.status ?? ''),
@@ -344,6 +347,7 @@ export default function AccountList() {
                 <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #f1f5f9' }}>
                   {([
                     { label: 'Booking',    align: 'left'   },
+                    { label: 'Service',    align: 'left'   },
                     { label: 'Date',       align: 'center' },
                     { label: 'User',       align: 'left'   },
                     { label: 'Captain',    align: 'left'   },
@@ -363,7 +367,7 @@ export default function AccountList() {
               <tbody>
                 {loading && Array.from({ length: PER_PAGE }).map((_, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    {Array.from({ length: 10 }).map((__, j) => (
+                    {Array.from({ length: 11 }).map((__, j) => (
                       <td key={j} style={{ padding: '14px' }}>
                         <div style={{ height: '12px', borderRadius: '4px', background: '#f1f5f9' }} />
                       </td>
@@ -372,7 +376,7 @@ export default function AccountList() {
                 ))}
 
                 {!loading && paginated.length === 0 && (
-                  <tr><td colSpan={10} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No bookings found matching your filters.</td></tr>
+                  <tr><td colSpan={11} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No bookings found matching your filters.</td></tr>
                 )}
 
                 {!loading && paginated.map(b => {
@@ -382,7 +386,12 @@ export default function AccountList() {
                     <tr key={b.id} className="ac-row" style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '12px 14px' }}>
                         <div style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>{b.booking_id}</div>
-                        <div style={{ fontSize: '10px', color: '#94a3b8' }}>{b.category}</div>
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{b.service_name}</div>
+                        {b.sub_service_name && b.sub_service_name !== b.service_name && (
+                          <div style={{ fontSize: '10px', color: '#94a3b8' }}>{b.sub_service_name}</div>
+                        )}
                       </td>
                       <td style={{ padding: '12px 14px', textAlign: 'center', fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDate(b.created_at)}</td>
                       <td style={{ padding: '12px 14px' }}>
