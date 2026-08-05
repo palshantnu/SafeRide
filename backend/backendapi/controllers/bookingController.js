@@ -58,6 +58,12 @@ exports.createBookingRequest = async (req, res) => {
             );
             if (!ss) return res.status(400).json({ status: false, message: "Invalid sub-service for this service" });
             subService = ss;
+
+            const [[userWallet]] = await db.execute(`SELECT wallet FROM users WHERE id = ?`, [user_id]);
+            const walletBalance = parseFloat(userWallet?.wallet || 0);
+            if (walletBalance <= -20) {
+                return res.status(400).json({ status: false, message: "Low wallet balance. Please recharge your wallet to book a ride." });
+            }
         }
 
         let formattedDate = null;
