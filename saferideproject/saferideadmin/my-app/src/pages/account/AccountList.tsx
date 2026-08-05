@@ -3,7 +3,7 @@ import {
   Search, ChevronLeft, ChevronRight, RefreshCw, Filter, X,
   IndianRupee, Wallet, XCircle, CheckCircle2, Banknote, CreditCard,
 } from 'lucide-react';
-import { getAllBookinghistory, getSelfSharingBookings, getParcelBookings, getOnSpotBookings } from '../../services/api';
+import { getAllBookinghistory, getSelfSharingBookings, getParcelBookings, getOnSpotBookings, getAllServices } from '../../services/api';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 // Normalized shape every source's raw API rows get mapped into, so one table/summary
@@ -142,16 +142,22 @@ export default function AccountList() {
   const [fromDate, setFromDate]     = useState('');
   const [toDate, setToDate]         = useState('');
   const [page, setPage]             = useState(1);
+  const [services, setServices]     = useState<{ key: string; label: string; order: number }[]>([]);
   const PER_PAGE = 10;
+
+  // Modules that live in their own tables outside `bookings` — a matching row in the
+  // `services` table (if any) doesn't get its own ride tab, the fixed tab below covers it.
+  const NON_RIDE_SERVICE_NAMES = ['self shar', 'parcel', 'on spot', 'onspot', 'on-spot'];
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [rides, selfSharing, parcel, onspot] = await Promise.all([
+      const [rides, selfSharing, parcel, onspot, serviceRows] = await Promise.all([
         getAllBookinghistory({ limit: 1000 }).catch(() => null),
         getSelfSharingBookings({ limit: 1000 }).catch(() => null),
         getParcelBookings({ limit: 1000 }).catch(() => null),
         getOnSpotBookings({ limit: 1000 }).catch(() => null),
+        getAllServices().catch(() => null),
       ]);
       setAllBookings([
         ...extractList(rides).map(mapRide),
@@ -159,6 +165,14 @@ export default function AccountList() {
         ...extractList(parcel).map(r => mapGeneric(r, 'PARCEL', 'Parcel')),
         ...extractList(onspot).map(r => mapGeneric(r, 'ONSPOT', 'On Spot')),
       ]);
+
+      const rawServices = extractList(serviceRows) as { id: number; title: string; status?: number; position?: number }[];
+      setServices(
+        rawServices
+          .filter(s => s.status !== 0 && !NON_RIDE_SERVICE_NAMES.some(k => (s.title || '').toLowerCase().includes(k)))
+          .map(s => ({ key: `SVC_${s.id}`, label: s.title, order: s.position ?? s.id }))
+          .sort((a, b) => a.order - b.order)
+      );
     } catch {
       setAllBookings([]);
     } finally {
@@ -168,25 +182,15 @@ export default function AccountList() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Real service tabs, derived from whatever ride services actually appear in the data —
-  // plus the three fixed modules that live in their own tables outside `bookings`.
-  const tabs = useMemo(() => {
-    const serviceMap = new Map<string, { key: string; label: string; order: number }>();
-    for (const b of allBookings) {
-      if (b.module === 'RIDE' && !serviceMap.has(b.tabKey)) {
-        const order = Number(b.tabKey.replace('SVC_', '')) || 0;
-        serviceMap.set(b.tabKey, { key: b.tabKey, label: b.service_name, order });
-      }
-    }
-    const serviceTabs = [...serviceMap.values()].sort((a, b) => a.order - b.order);
-    return [
-      { key: 'ALL', label: 'All' },
-      ...serviceTabs,
-      { key: 'SELF_SHARING', label: 'Self Sharing' },
-      { key: 'PARCEL', label: 'Parcel' },
-      { key: 'ONSPOT', label: 'On Spot' },
-    ];
-  }, [allBookings]);
+  // Tabs: All, then every active service from the `services` table (so a service with zero
+  // bookings so far still shows up), then the three fixed modules that live outside `bookings`.
+  const tabs = useMemo(() => [
+    { key: 'ALL', label: 'All' },
+    ...services,
+    { key: 'SELF_SHARING', label: 'Self Sharing' },
+    { key: 'PARCEL', label: 'Parcel' },
+    { key: 'ONSPOT', label: 'On Spot' },
+  ], [services]);
 
   const tabScoped = useMemo(
     () => activeTab === 'ALL' ? allBookings : allBookings.filter(b => b.tabKey === activeTab),

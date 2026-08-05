@@ -163,14 +163,14 @@ exports.createBookingRequest = async (req, res) => {
                 booking_id, user_id, service_id, sub_service_id, plan_id,
                 booking_type, status, user_status, driver_status, cancelled_by,
                 pickup_city, drop_city, to_city, pickup_address, drop_address,
-                total_fare, platform_fee, token_amount, person, schedule_date, otp, created_at
+                total_fare, platform_fee, access_fee, token_amount, person, schedule_date, otp, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, 'SEARCHING', 'SEARCHING', 'SEARCHING', 'NONE',
-                      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         `, [
             booking_id, user_id, service_id, subservice_id || null, plan_id,
             formattedDate ? '1' : '0',
             pickup_city, drop_city || null, to_city || null, pickup_address || null, drop_address || null,
-            totalFare.toFixed(2), platformFee.toFixed(2), tokenAmount.toFixed(2),
+            totalFare.toFixed(2), platformFee.toFixed(2), accessFee.toFixed(2), tokenAmount.toFixed(2),
             person, formattedDate, otp
         ]);
 
@@ -284,16 +284,27 @@ exports.getBookingHistory = async (req, res) => {
         const data = rows.map(b => {
             const isInCity = parseInt(b.service_id) === 1;
             const isCancelled = b.status === 'CANCELLED';
-            const finalFare = parseFloat(b.actual_fare || b.total_fare || 0);
+            const baseFare = parseFloat(b.actual_fare || b.total_fare || 0);
+            const topupPaid = parseFloat(b.topup_paid_amount || 0);
 
             let company_amount = 0;
             let captain_amount = 0;
+            let total_amount = baseFare;
 
             if (isInCity) {
+                // In-City fare is fully metered at ride completion; the topup flow is blocked
+                // server-side for this service (requestTopup rejects service_id 1), so no topup
+                // amount can ever apply here.
                 company_amount = parseFloat(b.access_fee || 0) + parseFloat(b.platform_fee || 0);
-                captain_amount = Math.max(0, finalFare - company_amount);
+                captain_amount = Math.max(0, baseFare - company_amount);
             } else {
-                company_amount = parseFloat(b.plan_company_commission || 0) + parseFloat(b.topup_company_commission || 0);
+                // Plan-based total_fare = plan_price + platform_fee + access_fee, fixed at booking
+                // creation (bookingController.createBookingRequest). Extra-km topups are charged
+                // mid-trip and never rolled into total_fare/actual_fare, so the true total collected
+                // is total_fare + sum(PAID topup_amount) — see computeTopupFareShare in driverController.
+                total_amount = baseFare + topupPaid;
+                company_amount = parseFloat(b.plan_company_commission || 0) + parseFloat(b.topup_company_commission || 0)
+                                + parseFloat(b.platform_fee || 0) + parseFloat(b.access_fee || 0);
                 captain_amount = parseFloat(b.plan_captain_commission || 0) + parseFloat(b.topup_captain_commission || 0);
             }
 
@@ -314,7 +325,7 @@ exports.getBookingHistory = async (req, res) => {
 
             return {
                 ...b,
-                total_amount: finalFare,
+                total_amount: Math.round(total_amount * 100) / 100,
                 company_amount: Math.round(company_amount * 100) / 100,
                 captain_amount: Math.round(captain_amount * 100) / 100,
                 wallet_impact,
