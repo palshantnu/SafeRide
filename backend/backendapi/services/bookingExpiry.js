@@ -2,26 +2,32 @@ const db = require("../config/db");
 const sendPush = require("./notification");
 
 // How often the sweep runs (ms). The actual expiry time per booking is driven by
-// sub_services.booking_destroy_min — this only controls how quickly we react.
+// sub_services.booking_destroy_min (In-City) or plans.booking_destroy_time (other
+// services) — this only controls how quickly we react.
 const SWEEP_INTERVAL_MS = 60 * 1000;
 
 const CANCEL_TITLE = "Booking cancelled";
 const CANCEL_BODY  = "Sorry, your booking has been cancelled. Please create a new booking.";
 
-// One sweep: find In-City bookings still SEARCHING past their allocated time,
+// One sweep: find bookings still SEARCHING past their allocated time,
 // cancel them atomically, and notify the user. Never throws.
 const sweepExpiredBookings = async () => {
     try {
         const [expired] = await db.query(`
             SELECT b.id, b.booking_id, b.user_id, u.fcm_token
             FROM bookings b
-            JOIN sub_services ss ON ss.id = b.sub_service_id
-            LEFT JOIN users u    ON u.id = b.user_id
-            WHERE b.service_id = 1
-              AND b.status = 'SEARCHING'
+            LEFT JOIN sub_services ss ON ss.id = b.sub_service_id
+            LEFT JOIN plans p         ON p.id  = b.plan_id
+            LEFT JOIN users u         ON u.id  = b.user_id
+            WHERE b.status = 'SEARCHING'
               AND b.deleted_at IS NULL
-              AND ss.booking_destroy_min > 0
-              AND b.created_at + INTERVAL ss.booking_destroy_min MINUTE <= NOW()
+              AND (
+                (b.service_id = 1 AND ss.booking_destroy_min > 0
+                  AND b.created_at + INTERVAL ss.booking_destroy_min MINUTE <= NOW())
+                OR
+                (b.service_id != 1 AND p.booking_destroy_time > 0
+                  AND b.created_at + INTERVAL p.booking_destroy_time MINUTE <= NOW())
+              )
         `);
 
         for (const booking of expired) {

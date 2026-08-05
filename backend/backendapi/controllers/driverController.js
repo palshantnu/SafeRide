@@ -830,6 +830,9 @@ exports.getBookingRequests = async (req, res) => {
               -- hide bookings whose allocated time (sub_service.booking_destroy_min) has expired
               AND (ss.booking_destroy_min IS NULL OR ss.booking_destroy_min <= 0
                    OR b.created_at + INTERVAL ss.booking_destroy_min MINUTE > NOW())
+              -- hide plan-based bookings whose allocated time (plan.booking_destroy_time) has expired
+              AND (p.booking_destroy_time IS NULL OR p.booking_destroy_time <= 0
+                   OR b.created_at + INTERVAL p.booking_destroy_time MINUTE > NOW())
               AND b.id NOT IN (
                   SELECT booking_id FROM booking_rejections WHERE driver_id = ?
               )
@@ -1300,10 +1303,16 @@ exports.acceptBooking = async (req, res) => {
 
         const [booking] = await db.query(
             `SELECT b.id, b.user_id, b.status, b.driver_id, b.service_id, b.sub_service_id,
-                    (ss.booking_destroy_min IS NOT NULL AND ss.booking_destroy_min > 0
-                     AND b.created_at + INTERVAL ss.booking_destroy_min MINUTE <= NOW()) AS is_expired
+                    (
+                      (ss.booking_destroy_min IS NOT NULL AND ss.booking_destroy_min > 0
+                       AND b.created_at + INTERVAL ss.booking_destroy_min MINUTE <= NOW())
+                      OR
+                      (p.booking_destroy_time IS NOT NULL AND p.booking_destroy_time > 0
+                       AND b.created_at + INTERVAL p.booking_destroy_time MINUTE <= NOW())
+                    ) AS is_expired
              FROM bookings b
              LEFT JOIN sub_services ss ON ss.id = b.sub_service_id
+             LEFT JOIN plans p ON p.id = b.plan_id
              WHERE b.booking_id = ?`,
             [booking_id]
         );
