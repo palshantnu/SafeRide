@@ -942,13 +942,15 @@ exports.adminGetAllBookings = async (req, res) => {
                    s.title AS service_name, ss.title AS sub_service_name, p.plan_name,
                    p.plan_captain_commission, p.plan_company_commission,
                    u.name AS user_name, u.mobile AS user_mobile, u.wallet AS user_wallet,
-                   d.full_name AS driver_name, d.phone AS driver_phone, d.phone AS driver_mobile, d.wallet AS driver_wallet
+                   d.full_name AS driver_name, d.phone AS driver_phone, d.phone AS driver_mobile, d.wallet AS driver_wallet,
+                   dr.rating, dr.review
             FROM parcel_bookings pb
             LEFT JOIN services s ON s.id = pb.service_id
             LEFT JOIN sub_services ss ON ss.id = pb.sub_service_id
             LEFT JOIN plans p    ON p.id = pb.plan_id
             LEFT JOIN users u    ON u.id = pb.user_id
             LEFT JOIN drivers d  ON d.id = pb.driver_id
+            LEFT JOIN driver_reviews dr ON dr.booking_type = 'parcel' AND dr.booking_id = pb.id
             ${where}
             ORDER BY pb.id DESC
             LIMIT ${limitNum} OFFSET ${offset}

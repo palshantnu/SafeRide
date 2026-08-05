@@ -25,6 +25,7 @@ import NotificationMessages from "../pages/notification/NotificationMessages";
 import AppSettings from "../pages/settings/AppSettings";
 import WithdrawalRequests  from "../pages/withdrawal/WithdrawalRequests";
 import AccountList        from "../pages/account/AccountList";
+import RatingsReviews     from "../pages/ratings/RatingsReviews";
 import SelfSharingHistory     from "../pages/history/SelfSharingHistory";
 import StateCityManagement   from "../pages/location/StateCityManagement";
 import InterCityHistory    from "../pages/history/InterCityHistory";
@@ -87,6 +88,7 @@ export default function AppRoutes() {
         <Route path="/dashboard/roles"           element={admin("roles",               <RolePermissions />)} />
         <Route path="/withdrawal-requests"       element={admin("withdrawals",         <WithdrawalRequests />)} />
         <Route path="/accounts"                  element={admin("accounts",            <AccountList />)} />
+        <Route path="/ratings-reviews"           element={admin("ratings",             <RatingsReviews />)} />
         <Route path="/self-sharing-history"      element={admin("self_sharing",        <SelfSharingHistory />)} />
         <Route path="/intercity-history"         element={admin("bookings",            <InterCityHistory />)} />
         <Route path="/parcel-history"            element={admin("parcel",              <ParcelHistory />)} />

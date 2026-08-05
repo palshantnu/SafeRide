@@ -256,13 +256,15 @@ exports.getBookingHistory = async (req, res) => {
                 COALESCE(bt.topup_paid_amount, 0)            AS topup_paid_amount,
                 COALESCE(bt.topup_pending_amount, 0)         AS topup_pending_amount,
                 COALESCE(bt.topup_captain_commission, 0)     AS topup_captain_commission,
-                COALESCE(bt.topup_company_commission, 0)     AS topup_company_commission
+                COALESCE(bt.topup_company_commission, 0)     AS topup_company_commission,
+                dr.rating, dr.review
             FROM bookings b
             LEFT JOIN users u ON b.user_id = u.id
             LEFT JOIN drivers d ON b.driver_id = d.id
             LEFT JOIN services s ON b.service_id = s.id
             LEFT JOIN sub_services ss ON ss.id = b.sub_service_id
             LEFT JOIN plans p ON b.plan_id = p.id
+            LEFT JOIN driver_reviews dr ON dr.booking_type = 'ride' AND dr.booking_id = b.id
             LEFT JOIN (
                 SELECT
                     booking_id,

@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, Car, Briefcase, Wrench, ListTree,
   BadgeDollarSign, UserCog, CalendarCheck, ShieldCheck,
   Settings, MessageSquare, Zap, LogOut, ChevronDown, FileText, Wallet,
-  History, Map, LayoutTemplate, MessageSquareText, BellRing, IndianRupee,
+  History, Map, LayoutTemplate, MessageSquareText, BellRing, IndianRupee, Star,
   type LucideIcon
 } from "lucide-react";
 import { usePermissions } from "../context/PermissionsContext";
@@ -44,6 +44,7 @@ const navItems: NavItem[] = [
   { name: "Notifications", icon: BellRing, path: "/notifications", module: "notifications" },
   { name: "Withdrawal Requests", icon: Wallet, path: "/withdrawal-requests", module: "withdrawals" },
   { name: "Accounts", icon: IndianRupee, path: "/accounts", module: "accounts" },
+  { name: "Ratings & Reviews", icon: Star, path: "/ratings-reviews", module: "ratings" },
   { name: "State & City",        icon: Map,   path: "/state-city", module: "locations" },
   { name: "Role & Permissions", icon: ShieldCheck, path: "/dashboard/roles", module: "roles" },
   { name: "App Settings", icon: Settings, path: "/dashboard/settings" },

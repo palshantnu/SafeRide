@@ -1060,13 +1060,15 @@ exports.adminGetAllBookings = async (req, res) => {
                    COALESCE(assigned_driver.id, CASE WHEN st.creator_type = 'DRIVER' THEN creator_driver.id END) AS driver_id,
                    COALESCE(assigned_driver.full_name, CASE WHEN st.creator_type = 'DRIVER' THEN creator_driver.full_name END) AS driver_name,
                    COALESCE(assigned_driver.phone, CASE WHEN st.creator_type = 'DRIVER' THEN creator_driver.phone END) AS driver_mobile,
-                   COALESCE(assigned_driver.wallet, CASE WHEN st.creator_type = 'DRIVER' THEN creator_driver.wallet END) AS driver_wallet
+                   COALESCE(assigned_driver.wallet, CASE WHEN st.creator_type = 'DRIVER' THEN creator_driver.wallet END) AS driver_wallet,
+                   dr.rating, dr.review
             FROM sigi_bookings sb
             JOIN sigi_trips st ON st.id = sb.trip_id
             LEFT JOIN services s ON s.id = st.service_id
             LEFT JOIN users u ON u.id = sb.user_id
             LEFT JOIN drivers creator_driver ON st.creator_type = 'DRIVER' AND creator_driver.id = st.creator_id
             LEFT JOIN drivers assigned_driver ON assigned_driver.id = st.assigned_driver_id
+            LEFT JOIN driver_reviews dr ON dr.booking_type = 'sigi' AND dr.booking_id = sb.id
             ${where}
             ORDER BY sb.id DESC
             LIMIT ${limitNum} OFFSET ${offset}
