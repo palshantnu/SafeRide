@@ -1189,7 +1189,7 @@ exports.getInvoice = async (req, res) => {
                 access_fee: accessFee,
                 access_fee_type: booking.sub_access_fee_type || 'flat',
                 platform_fee: platformFee,
-                actual_fare: booking.actual_fare
+                actual_fare: booking.total_fare
             };
 
         } else {
