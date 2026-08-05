@@ -1076,8 +1076,11 @@ exports.adminGetAllBookings = async (req, res) => {
         // captain's (or trip creator's) own money, nothing is modeled as a company cut.
         // Cancellation charges are computed on-the-fly elsewhere (calcCancelCharge) and never
         // persisted, so they can't be reported here without re-running that calculation.
+        // "Settled" here means the full balance has been collected, i.e. balance_paid = 1
+        // (token_paid alone only covers the deposit, not the full fare).
         const data = rows.map(b => ({
             ...b,
+            paid: Number(b.balance_paid) === 1 ? 1 : 0,
             total_amount: parseFloat(b.total_fare || 0),
             company_amount: 0,
             captain_amount: parseFloat(b.total_fare || 0),

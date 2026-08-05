@@ -956,8 +956,12 @@ exports.adminGetAllBookings = async (req, res) => {
 
         // Company/captain split comes straight off the plan (parcel has no cancellation-fee
         // concept in the schema today — cancelled bookings just flip status, nothing is charged).
+        // `paid` on this table only ever means "token paid" (see payToken's "Token already paid"
+        // guard) — the full amount is only collected once `balance_paid` flips, so that's the
+        // signal to treat as "settled" here, not the raw `paid` column.
         const data = rows.map(b => ({
             ...b,
+            paid: Number(b.balance_paid) === 1 ? 1 : 0,
             total_amount: parseFloat(b.actual_fare || b.total_fare || 0),
             company_amount: parseFloat(b.plan_company_commission || 0),
             captain_amount: parseFloat(b.plan_captain_commission || 0),

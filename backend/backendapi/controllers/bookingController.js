@@ -244,7 +244,8 @@ exports.getBookingHistory = async (req, res) => {
                 b.cancelled_by, b.cancel_reason, b.cancellation_fee,
                 b.pickup_city, b.drop_city, b.to_city, b.pickup_address, b.drop_address,
                 b.distance, b.total_fare, b.actual_distance, b.actual_fare,
-                b.platform_fee, b.access_fee, b.paid, b.payment_mode,
+                b.platform_fee, b.access_fee, b.paid, b.balance_paid, b.payment_mode,
+                b.token_amount, b.balance_amount,
                 b.person, b.schedule_date, b.created_at,
                 u.id AS user_id, u.name AS user_name, u.mobile AS user_mobile, u.wallet AS user_wallet,
                 d.id AS driver_id, d.full_name AS driver_name, d.phone AS driver_mobile, d.wallet AS driver_wallet,
@@ -323,8 +324,17 @@ exports.getBookingHistory = async (req, res) => {
                 wallet_impact = { amount: company_amount, target: 'CAPTAIN', reason: 'PLATFORM_COMMISSION' };
             }
 
+            // `bookings.paid` is only ever set for the In-City flow (UserapiController.processPayment).
+            // Plan-based bookings settle via `balance_paid` (UserapiController.payBalance) instead, so
+            // `paid` stays 0 there forever even once fully paid — normalize both into one "settled" flag
+            // so the Accounts view doesn't read every plan-based booking as permanently unpaid.
+            const settled = isInCity
+                ? Number(b.paid) === 1
+                : (Number(b.balance_paid) === 1 || ['BALANCE_PAID', 'COMPLETED'].includes(b.status));
+
             return {
                 ...b,
+                paid: settled ? 1 : 0,
                 total_amount: Math.round(total_amount * 100) / 100,
                 company_amount: Math.round(company_amount * 100) / 100,
                 captain_amount: Math.round(captain_amount * 100) / 100,

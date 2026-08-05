@@ -23,6 +23,11 @@ interface MoneyBooking {
   status: string;
   cancelled_by?: string | null;
   cancellation_fee?: number | null;
+  token_amount?: number | null;
+  balance_amount?: number | null;
+  topup_amount?: number | null;
+  topup_company_amount?: number | null;
+  topup_captain_amount?: number | null;
   total_amount: number;
   company_amount: number;
   captain_amount: number;
@@ -72,6 +77,11 @@ const mapRide = (raw: RawRow): MoneyBooking => ({
   status: String(raw.status ?? ''),
   cancelled_by: raw.cancelled_by as string | null,
   cancellation_fee: raw.cancellation_fee != null ? Number(raw.cancellation_fee) : null,
+  token_amount: raw.token_amount != null ? Number(raw.token_amount) : null,
+  balance_amount: raw.balance_amount != null ? Number(raw.balance_amount) : null,
+  topup_amount: Number(raw.topup_paid_amount ?? 0),
+  topup_company_amount: Number(raw.topup_company_commission ?? 0),
+  topup_captain_amount: Number(raw.topup_captain_commission ?? 0),
   total_amount: Number(raw.total_amount ?? 0),
   company_amount: Number(raw.company_amount ?? 0),
   captain_amount: Number(raw.captain_amount ?? 0),
@@ -231,7 +241,10 @@ export default function AccountList() {
       if (b.status === 'CANCELLED') {
         cancelledCount += 1;
         cancellationFee += Number(b.cancellation_fee || 0);
-      } else {
+      } else if (b.paid) {
+        // Only count commission on money that's actually been collected — a booking still
+        // sitting in SEARCHING/ACCEPTED/etc. with paid=0 hasn't earned anyone anything yet,
+        // so it shouldn't inflate Company/Captain Share while Collected stays at ₹0.
         company += b.company_amount || 0;
         captain += b.captain_amount || 0;
       }
@@ -361,9 +374,11 @@ export default function AccountList() {
                     { label: 'User',       align: 'left'   },
                     { label: 'Captain',    align: 'left'   },
                     { label: 'Payment',    align: 'center' },
+                    { label: 'Token / Balance', align: 'right' },
                     { label: 'Total',      align: 'right'  },
                     { label: 'Company ₹',  align: 'right'  },
                     { label: 'Captain ₹',  align: 'right'  },
+                    { label: 'Topup',      align: 'right'  },
                     { label: 'Cancellation', align: 'right' },
                     { label: 'Status',     align: 'center' },
                   ] as { label: string; align: React.CSSProperties['textAlign'] }[]).map(({ label, align }, i) => (
@@ -376,7 +391,7 @@ export default function AccountList() {
               <tbody>
                 {loading && Array.from({ length: PER_PAGE }).map((_, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    {Array.from({ length: 11 }).map((__, j) => (
+                    {Array.from({ length: 13 }).map((__, j) => (
                       <td key={j} style={{ padding: '14px' }}>
                         <div style={{ height: '12px', borderRadius: '4px', background: '#f1f5f9' }} />
                       </td>
@@ -385,7 +400,7 @@ export default function AccountList() {
                 ))}
 
                 {!loading && paginated.length === 0 && (
-                  <tr><td colSpan={11} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No bookings found matching your filters.</td></tr>
+                  <tr><td colSpan={13} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No bookings found matching your filters.</td></tr>
                 )}
 
                 {!loading && paginated.map(b => {
@@ -426,12 +441,30 @@ export default function AccountList() {
                         }}>{b.payment_mode || '—'}</span>
                         {!b.paid && <div style={{ fontSize: '9px', color: '#cbd5e1', marginTop: '2px' }}>Unpaid</div>}
                       </td>
+                      <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                        {b.token_amount != null || b.balance_amount != null ? (
+                          <>
+                            <div style={{ fontSize: '11px', color: '#1e293b' }}>Token {fmtAmt(b.token_amount)}</div>
+                            <div style={{ fontSize: '11px', color: '#64748b' }}>Bal {fmtAmt(b.balance_amount)}</div>
+                          </>
+                        ) : <span style={{ fontSize: '11px', color: '#cbd5e1' }}>—</span>}
+                      </td>
                       <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>{fmtAmt(b.total_amount)}</td>
                       <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#059669' }}>
-                        {b.status === 'CANCELLED' ? '—' : fmtAmt(b.company_amount)}
+                        {b.status === 'CANCELLED' || !b.paid ? '—' : fmtAmt(b.company_amount)}
                       </td>
                       <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#0369a1' }}>
-                        {b.status === 'CANCELLED' ? '—' : fmtAmt(b.captain_amount)}
+                        {b.status === 'CANCELLED' || !b.paid ? '—' : fmtAmt(b.captain_amount)}
+                      </td>
+                      <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                        {b.topup_amount && b.topup_amount > 0 ? (
+                          <>
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#1e293b' }}>{fmtAmt(b.topup_amount)}</div>
+                            <div style={{ fontSize: '9px', color: '#94a3b8' }}>
+                              Co {fmtAmt(b.topup_company_amount)} · Cap {fmtAmt(b.topup_captain_amount)}
+                            </div>
+                          </>
+                        ) : <span style={{ fontSize: '11px', color: '#cbd5e1' }}>—</span>}
                       </td>
                       <td style={{ padding: '12px 14px', textAlign: 'right' }}>
                         {b.status === 'CANCELLED' && cancellationKnown && Number(b.cancellation_fee) > 0 ? (

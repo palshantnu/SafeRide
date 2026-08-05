@@ -753,8 +753,11 @@ exports.adminGetAllBookings = async (req, res) => {
         `, values);
 
         // Same plan-driven split as parcel; on-spot also has no persisted cancellation-fee column.
+        // There's no generic `paid` column here at all — only `token_paid`/`balance_paid` — so
+        // "settled" means the full balance has been collected, i.e. balance_paid = 1.
         const data = rows.map(b => ({
             ...b,
+            paid: Number(b.balance_paid) === 1 ? 1 : 0,
             total_amount: parseFloat(b.total_fare || 0),
             company_amount: parseFloat(b.plan_company_commission || 0),
             captain_amount: parseFloat(b.plan_captain_commission || 0),
