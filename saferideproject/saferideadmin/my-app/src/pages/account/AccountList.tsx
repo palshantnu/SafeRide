@@ -6,10 +6,14 @@ import {
 import { getAllBookinghistory, getSelfSharingBookings, getParcelBookings, getOnSpotBookings } from '../../services/api';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
-// Normalized shape every tab's raw API rows get mapped into, so one table/summary
-// implementation can serve Rides, Self Sharing, Parcel and On Spot alike.
+// Normalized shape every source's raw API rows get mapped into, so one table/summary
+// implementation can serve every service — real ride services plus Self Sharing/Parcel/On Spot.
+type Module = 'RIDE' | 'SELF_SHARING' | 'PARCEL' | 'ONSPOT';
+
 interface MoneyBooking {
   id: number;
+  module: Module;
+  tabKey: string; // 'SVC_<service_id>' for rides, else the module name
   booking_id: string;
   created_at: string;
   service_name: string;
@@ -29,7 +33,6 @@ interface MoneyBooking {
   driver_name: string | null;
   driver_mobile: string | null;
   driver_wallet: string | number | null;
-  trip_type?: 'IN_CITY' | 'INTERCITY' | 'OTHER';
 }
 
 type RawRow = Record<string, unknown>;
@@ -49,21 +52,17 @@ const getStatusStyle = (s?: string) => STATUS_CONFIG[(s || '').toUpperCase()] ||
 
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtAmt  = (v?: number | string | null) => `₹${Number(v ?? 0).toFixed(2)}`;
-const norm    = (s?: string | null) => (s || '').toLowerCase();
 
-// Same signal InterCityHistory.tsx uses to split intercity bookings out of the shared bookings table.
-const INTERCITY_KEYWORDS = ['intercity', 'rental', 'oneway', 'outstation'];
-const classifyRide = (raw: RawRow): 'IN_CITY' | 'INTERCITY' | 'OTHER' => {
-  if (Number(raw.service_id) === 1) return 'IN_CITY';
-  const serviceName = norm(raw.service_name as string | null);
-  if (raw.booking_type === '1' || INTERCITY_KEYWORDS.some(k => serviceName.includes(k))) return 'INTERCITY';
-  return 'OTHER';
-};
+// Modules whose backend schema has no persisted cancellation-fee column (see backend comments
+// in selfSharingController.js / parcelController.js / onspotController.js).
+const CANCELLATION_UNTRACKED: Module[] = ['SELF_SHARING', 'PARCEL', 'ONSPOT'];
 
-// ── Per-tab mappers: each backend already returns total_amount/company_amount/captain_amount
+// ── Per-source mappers: each backend already returns total_amount/company_amount/captain_amount
 // (added alongside this module), so mapping is mostly a field-name pass-through. ──
 const mapRide = (raw: RawRow): MoneyBooking => ({
   id: Number(raw.id),
+  module: 'RIDE',
+  tabKey: `SVC_${raw.service_id}`,
   booking_id: String(raw.booking_id ?? ''),
   created_at: String(raw.created_at ?? ''),
   service_name: String(raw.service_name || '—'),
@@ -83,14 +82,15 @@ const mapRide = (raw: RawRow): MoneyBooking => ({
   driver_name: raw.driver_name as string | null,
   driver_mobile: raw.driver_mobile as string | null,
   driver_wallet: raw.driver_wallet as string | number | null,
-  trip_type: classifyRide(raw),
 });
 
-const mapGeneric = (raw: RawRow, category: string): MoneyBooking => ({
+const mapGeneric = (raw: RawRow, module: Module, fallbackLabel: string): MoneyBooking => ({
   id: Number(raw.id),
+  module,
+  tabKey: module,
   booking_id: String(raw.booking_id ?? ''),
   created_at: String(raw.created_at ?? ''),
-  service_name: String(raw.service_name || category),
+  service_name: String(raw.service_name || fallbackLabel),
   sub_service_name: (raw.sub_service_name as string | null) ?? null,
   payment_mode: (raw.payment_mode as string | null) ?? null,
   paid: Number(raw.paid ?? raw.token_paid ?? 0),
@@ -108,14 +108,6 @@ const mapGeneric = (raw: RawRow, category: string): MoneyBooking => ({
   driver_mobile: raw.driver_mobile as string | null,
   driver_wallet: raw.driver_wallet as string | number | null,
 });
-
-type TabKey = 'rides' | 'self_sharing' | 'parcel' | 'onspot';
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'rides',        label: 'Rides' },
-  { key: 'self_sharing', label: 'Self Sharing' },
-  { key: 'parcel',       label: 'Parcel' },
-  { key: 'onspot',       label: 'On Spot' },
-];
 
 const extractList = (res: unknown): RawRow[] => {
   const body = (res as { data: unknown }).data;
@@ -141,47 +133,69 @@ function StatCard({ label, value, icon, bg, color }: { label: string; value: str
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function AccountList() {
-  const [activeTab, setActiveTab]   = useState<TabKey>('rides');
-  const [bookings, setBookings]     = useState<MoneyBooking[]>([]);
+  const [allBookings, setAllBookings] = useState<MoneyBooking[]>([]);
   const [loading, setLoading]       = useState(true);
+  const [activeTab, setActiveTab]   = useState('ALL');
   const [search, setSearch]         = useState('');
   const [paymentFilter, setPaymentFilter] = useState('');
   const [statusFilter, setStatusFilter]   = useState('');
-  const [tripTypeFilter, setTripTypeFilter] = useState(''); // rides tab only
   const [fromDate, setFromDate]     = useState('');
   const [toDate, setToDate]         = useState('');
   const [page, setPage]             = useState(1);
   const PER_PAGE = 10;
 
-  const fetchBookings = useCallback(async (tab: TabKey) => {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      let list: MoneyBooking[] = [];
-      if (tab === 'rides') {
-        list = extractList(await getAllBookinghistory({ limit: 1000 })).map(mapRide);
-      } else if (tab === 'self_sharing') {
-        list = extractList(await getSelfSharingBookings({ limit: 1000 })).map(r => mapGeneric(r, 'Self Sharing'));
-      } else if (tab === 'parcel') {
-        list = extractList(await getParcelBookings({ limit: 1000 })).map(r => mapGeneric(r, 'Parcel'));
-      } else {
-        list = extractList(await getOnSpotBookings({ limit: 1000 })).map(r => mapGeneric(r, 'On Spot'));
-      }
-      setBookings(list);
+      const [rides, selfSharing, parcel, onspot] = await Promise.all([
+        getAllBookinghistory({ limit: 1000 }).catch(() => null),
+        getSelfSharingBookings({ limit: 1000 }).catch(() => null),
+        getParcelBookings({ limit: 1000 }).catch(() => null),
+        getOnSpotBookings({ limit: 1000 }).catch(() => null),
+      ]);
+      setAllBookings([
+        ...extractList(rides).map(mapRide),
+        ...extractList(selfSharing).map(r => mapGeneric(r, 'SELF_SHARING', 'Self Sharing')),
+        ...extractList(parcel).map(r => mapGeneric(r, 'PARCEL', 'Parcel')),
+        ...extractList(onspot).map(r => mapGeneric(r, 'ONSPOT', 'On Spot')),
+      ]);
     } catch {
-      setBookings([]);
+      setAllBookings([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    setSearch(''); setPaymentFilter(''); setStatusFilter(''); setTripTypeFilter(''); setFromDate(''); setToDate(''); setPage(1);
-    fetchBookings(activeTab);
-  }, [activeTab, fetchBookings]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const statuses = useMemo(() => [...new Set(bookings.map(b => b.status))].sort(), [bookings]);
+  // Real service tabs, derived from whatever ride services actually appear in the data —
+  // plus the three fixed modules that live in their own tables outside `bookings`.
+  const tabs = useMemo(() => {
+    const serviceMap = new Map<string, { key: string; label: string; order: number }>();
+    for (const b of allBookings) {
+      if (b.module === 'RIDE' && !serviceMap.has(b.tabKey)) {
+        const order = Number(b.tabKey.replace('SVC_', '')) || 0;
+        serviceMap.set(b.tabKey, { key: b.tabKey, label: b.service_name, order });
+      }
+    }
+    const serviceTabs = [...serviceMap.values()].sort((a, b) => a.order - b.order);
+    return [
+      { key: 'ALL', label: 'All' },
+      ...serviceTabs,
+      { key: 'SELF_SHARING', label: 'Self Sharing' },
+      { key: 'PARCEL', label: 'Parcel' },
+      { key: 'ONSPOT', label: 'On Spot' },
+    ];
+  }, [allBookings]);
 
-  const filtered = useMemo(() => bookings.filter(b => {
+  const tabScoped = useMemo(
+    () => activeTab === 'ALL' ? allBookings : allBookings.filter(b => b.tabKey === activeTab),
+    [allBookings, activeTab]
+  );
+
+  const statuses = useMemo(() => [...new Set(tabScoped.map(b => b.status))].sort(), [tabScoped]);
+
+  const filtered = useMemo(() => tabScoped.filter(b => {
     const q = search.toLowerCase();
     const matchSearch = !q ||
       b.booking_id.toLowerCase().includes(q) ||
@@ -191,12 +205,13 @@ export default function AccountList() {
       (b.driver_mobile|| '').includes(q);
     const matchPayment = !paymentFilter || b.payment_mode === paymentFilter;
     const matchStatus  = !statusFilter || b.status === statusFilter;
-    const matchTripType = !tripTypeFilter || b.trip_type === tripTypeFilter;
     const created = b.created_at ? new Date(b.created_at) : null;
     const matchFrom = !fromDate || (created && created >= new Date(fromDate));
     const matchTo   = !toDate   || (created && created <= new Date(`${toDate}T23:59:59`));
-    return matchSearch && matchPayment && matchStatus && matchTripType && matchFrom && matchTo;
-  }), [bookings, search, paymentFilter, statusFilter, tripTypeFilter, fromDate, toDate]);
+    return matchSearch && matchPayment && matchStatus && matchFrom && matchTo;
+  }), [tabScoped, search, paymentFilter, statusFilter, fromDate, toDate]);
+
+  useEffect(() => { setPage(1); }, [activeTab]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -220,9 +235,9 @@ export default function AccountList() {
     return { online, cash, company, captain, cancellationFee, cancelledCount, net: online + cash };
   }, [filtered]);
 
-  const resetFilters = () => { setSearch(''); setPaymentFilter(''); setStatusFilter(''); setTripTypeFilter(''); setFromDate(''); setToDate(''); setPage(1); };
-  const hasFilter = search || paymentFilter || statusFilter || tripTypeFilter || fromDate || toDate;
-  const cancellationTracked = activeTab === 'rides'; // only bookings.cancellation_fee is persisted today
+  const resetFilters = () => { setSearch(''); setPaymentFilter(''); setStatusFilter(''); setFromDate(''); setToDate(''); setPage(1); };
+  const hasFilter = search || paymentFilter || statusFilter || fromDate || toDate;
+  const showCancellationCard = !CANCELLATION_UNTRACKED.includes(activeTab as Module);
 
   return (
     <>
@@ -231,8 +246,10 @@ export default function AccountList() {
         @keyframes spin { to { transform:rotate(360deg) } }
         .ac-row:hover td { background:#fafbff !important; }
         .ac-row td { transition: background 0.12s; }
-        .ac-tab { border: none; background: transparent; cursor: pointer; padding: 8px 16px; border-radius: 10px; font-size: 12.5px; font-weight: 700; color: #64748b; }
+        .ac-tab { border: none; background: transparent; cursor: pointer; padding: 8px 16px; border-radius: 10px; font-size: 12.5px; font-weight: 700; color: #64748b; white-space: nowrap; }
         .ac-tab.active { background: #eef2ff; color: #4338ca; }
+        .ac-tabs { overflow-x: auto; }
+        .ac-tabs::-webkit-scrollbar { height: 0; }
       `}</style>
 
       <div className="responsive-page" style={{ padding: '24px', animation: 'fadeSlideUp 0.4s ease' }}>
@@ -242,19 +259,19 @@ export default function AccountList() {
           <div>
             <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: 0 }}>Accounts</h2>
             <p style={{ color: '#94a3b8', fontSize: '12px', marginTop: '2px', margin: 0 }}>
-              Payment, commission &amp; cancellation breakdown · Showing <b>{filtered.length}</b> of <b>{bookings.length}</b>
+              Payment, commission &amp; cancellation breakdown · Showing <b>{filtered.length}</b> of <b>{tabScoped.length}</b>
             </p>
           </div>
-          <button onClick={() => fetchBookings(activeTab)} disabled={loading}
+          <button onClick={fetchAll} disabled={loading}
             style={{ background: 'white', border: '1.5px solid #e2e8f0', color: '#64748b', padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600 }}>
             <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
             Refresh
           </button>
         </div>
 
-        {/* ── Module Tabs ── */}
-        <div style={{ display: 'flex', gap: '6px', background: 'white', border: '1.5px solid #eef2f7', borderRadius: '12px', padding: '5px', marginBottom: '18px', width: 'fit-content' }}>
-          {TABS.map(t => (
+        {/* ── Service Tabs ── */}
+        <div className="ac-tabs" style={{ display: 'flex', gap: '6px', background: 'white', border: '1.5px solid #eef2f7', borderRadius: '12px', padding: '5px', marginBottom: '18px', width: 'fit-content', maxWidth: '100%' }}>
+          {tabs.map(t => (
             <button key={t.key} className={`ac-tab${activeTab === t.key ? ' active' : ''}`} onClick={() => setActiveTab(t.key)}>
               {t.label}
             </button>
@@ -268,11 +285,11 @@ export default function AccountList() {
           <StatCard label="Net Collected"        value={fmtAmt(summary.net)}             bg="#eef2ff" color="#6366f1" icon={<IndianRupee size={18} color="#6366f1" />} />
           <StatCard label="Company Share"        value={fmtAmt(summary.company)}         bg="#d1fae5" color="#059669" icon={<CheckCircle2 size={18} color="#059669" />} />
           <StatCard label="Captain Share"        value={fmtAmt(summary.captain)}         bg="#e0f2fe" color="#0369a1" icon={<Wallet size={18} color="#0369a1" />} />
-          {cancellationTracked && (
+          {showCancellationCard && (
             <StatCard label={`Cancellation Charges (${summary.cancelledCount})`} value={fmtAmt(summary.cancellationFee)} bg="#fee2e2" color="#dc2626" icon={<XCircle size={18} color="#dc2626" />} />
           )}
         </div>
-        {!cancellationTracked && (
+        {!showCancellationCard && (
           <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '-12px', marginBottom: '16px' }}>
             Note: this module doesn't persist a cancellation fee in the backend yet, so cancellation charges aren't shown here.
           </p>
@@ -312,18 +329,6 @@ export default function AccountList() {
               {statuses.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-
-          {activeTab === 'rides' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '10px', padding: '7px 12px' }}>
-              <select value={tripTypeFilter} onChange={e => { setTripTypeFilter(e.target.value); setPage(1); }}
-                style={{ border: 'none', outline: 'none', fontSize: '12px', color: '#1e293b', background: 'transparent', cursor: 'pointer', minWidth: '120px' }}>
-                <option value="">All Trip Types</option>
-                <option value="IN_CITY">In-City</option>
-                <option value="INTERCITY">Inter City</option>
-                <option value="OTHER">Other Plans</option>
-              </select>
-            </div>
-          )}
 
           <input type="date" value={fromDate} onChange={e => { setFromDate(e.target.value); setPage(1); }}
             style={{ border: '1.5px solid #e2e8f0', outline: 'none', fontSize: '12px', color: '#1e293b', background: 'white', borderRadius: '10px', padding: '7px 10px' }} />
@@ -382,8 +387,9 @@ export default function AccountList() {
                 {!loading && paginated.map(b => {
                   const st = getStatusStyle(b.status);
                   const cancelledTo = b.cancelled_by === 'DRIVER' ? 'Captain paid' : b.cancelled_by === 'USER' ? 'User paid' : null;
+                  const cancellationKnown = b.cancellation_fee != null;
                   return (
-                    <tr key={b.id} className="ac-row" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <tr key={`${b.module}-${b.id}`} className="ac-row" style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '12px 14px' }}>
                         <div style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>{b.booking_id}</div>
                       </td>
@@ -424,12 +430,12 @@ export default function AccountList() {
                         {b.status === 'CANCELLED' ? '—' : fmtAmt(b.captain_amount)}
                       </td>
                       <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                        {cancellationTracked && b.status === 'CANCELLED' && Number(b.cancellation_fee || 0) > 0 ? (
+                        {b.status === 'CANCELLED' && cancellationKnown && Number(b.cancellation_fee) > 0 ? (
                           <>
                             <div style={{ fontSize: '12px', fontWeight: 700, color: '#dc2626' }}>{fmtAmt(b.cancellation_fee)}</div>
                             <div style={{ fontSize: '9px', color: '#94a3b8' }}>{cancelledTo || b.cancelled_by}</div>
                           </>
-                        ) : b.status === 'CANCELLED' && !cancellationTracked ? (
+                        ) : b.status === 'CANCELLED' && !cancellationKnown ? (
                           <span style={{ fontSize: '10px', color: '#cbd5e1', fontStyle: 'italic' }}>Not tracked</span>
                         ) : <span style={{ fontSize: '11px', color: '#cbd5e1' }}>—</span>}
                       </td>
