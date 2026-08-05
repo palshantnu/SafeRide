@@ -1526,8 +1526,16 @@ exports.cancelBooking = async (req, res) => {
                     ? (new Date(booking.schedule_date) - new Date()) / 36e5
                     : null;
 
+                // Instant (non-scheduled) bookings — e.g. In-City rides — have no
+                // schedule_date, meaning cancellation is happening right now with
+                // zero notice. That must use the strictest (0-24h) tier, not the
+                // lenient before48 tier, otherwise instant-ride cancellations never
+                // get charged.
                 let feeType, feeAmount;
-                if (hoursLeft === null || hoursLeft >= 48) {
+                if (hoursLeft === null) {
+                    feeType   = ss[`${prefix}_cancel_0to24_type`];
+                    feeAmount = parseFloat(ss[`${prefix}_cancel_0to24_amount`] || 0);
+                } else if (hoursLeft >= 48) {
                     feeType   = ss[`${prefix}_cancel_before48_type`];
                     feeAmount = parseFloat(ss[`${prefix}_cancel_before48_amount`] || 0);
                 } else if (hoursLeft >= 24) {
@@ -1611,6 +1619,24 @@ await db.query(
             }
         } catch (nerr) {
             console.error("notification send error:", nerr.message);
+        }
+
+        // notify the canceller if a cancellation fee was deducted from their wallet
+        if (walletDeducted > 0) {
+            try {
+                const feeMsg = `₹${walletDeducted} cancellation fee deducted from your wallet for booking ${booking.booking_id}`;
+                if (role === 'DRIVER') {
+                    await notifyDriver(booking.driver_id, "Cancellation fee deducted", feeMsg,
+                        { type: "CANCELLATION_FEE", booking_id: booking.booking_id, amount: walletDeducted }
+                    );
+                } else {
+                    await notifyUser(booking.user_id, "Cancellation fee deducted", feeMsg,
+                        { type: "CANCELLATION_FEE", booking_id: booking.booking_id, amount: walletDeducted }
+                    );
+                }
+            } catch (nerr) {
+                console.error("cancellation fee notification error:", nerr.message);
+            }
         }
 
         return res.json({
