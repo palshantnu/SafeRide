@@ -241,16 +241,16 @@ exports.getBookingHistory = async (req, res) => {
                 b.id, b.booking_id, b.booking_type,
                 b.service_id, b.sub_service_id,
                 b.status, b.user_status, b.driver_status,
-                b.cancelled_by, b.cancel_reason,
+                b.cancelled_by, b.cancel_reason, b.cancellation_fee,
                 b.pickup_city, b.drop_city, b.to_city, b.pickup_address, b.drop_address,
                 b.distance, b.total_fare, b.actual_distance, b.actual_fare,
-                b.platform_fee, b.paid, b.payment_mode,
+                b.platform_fee, b.access_fee, b.paid, b.payment_mode,
                 b.person, b.schedule_date, b.created_at,
-                u.id AS user_id, u.name AS user_name, u.mobile AS user_mobile,
-                d.id AS driver_id, d.full_name AS driver_name, d.phone AS driver_mobile,
+                u.id AS user_id, u.name AS user_name, u.mobile AS user_mobile, u.wallet AS user_wallet,
+                d.id AS driver_id, d.full_name AS driver_name, d.phone AS driver_mobile, d.wallet AS driver_wallet,
                 s.title AS service_name,
                 ss.title AS sub_service_name,
-                p.plan_name, p.plan_price,
+                p.plan_name, p.plan_price, p.plan_captain_commission, p.plan_company_commission,
                 COALESCE(bt.topup_count, 0)                 AS topup_count,
                 COALESCE(bt.topup_paid_amount, 0)            AS topup_paid_amount,
                 COALESCE(bt.topup_pending_amount, 0)         AS topup_pending_amount,
@@ -278,11 +278,54 @@ exports.getBookingHistory = async (req, res) => {
             LIMIT ${limitNum} OFFSET ${offset}
         `, values);
 
+        // Money split per booking — mirrors the same formulas used at ride-completion time
+        // (driverController.completeRide / computeDriverAmount) so the Accounts view matches
+        // what was actually deducted from/credited to wallets, rather than re-deriving new numbers.
+        const data = rows.map(b => {
+            const isInCity = parseInt(b.service_id) === 1;
+            const isCancelled = b.status === 'CANCELLED';
+            const finalFare = parseFloat(b.actual_fare || b.total_fare || 0);
+
+            let company_amount = 0;
+            let captain_amount = 0;
+
+            if (isInCity) {
+                company_amount = parseFloat(b.access_fee || 0) + parseFloat(b.platform_fee || 0);
+                captain_amount = Math.max(0, finalFare - company_amount);
+            } else {
+                company_amount = parseFloat(b.plan_company_commission || 0) + parseFloat(b.topup_company_commission || 0);
+                captain_amount = parseFloat(b.plan_captain_commission || 0) + parseFloat(b.topup_captain_commission || 0);
+            }
+
+            // Wallet impact actually applied in code today: the In-City company cut is deducted
+            // from the driver's wallet on completion; a cancellation fee is deducted from whoever
+            // cancelled. Plan-based commissions are computed/displayed but never credited to any
+            // wallet in the current backend — surfaced as `wallet_impact: null` rather than guessed.
+            let wallet_impact = null;
+            if (isCancelled && parseFloat(b.cancellation_fee || 0) > 0) {
+                wallet_impact = {
+                    amount: parseFloat(b.cancellation_fee),
+                    target: b.cancelled_by === 'DRIVER' ? 'CAPTAIN' : b.cancelled_by === 'USER' ? 'USER' : null,
+                    reason: 'CANCELLATION_FEE',
+                };
+            } else if (isInCity && !isCancelled && company_amount > 0 && ['WAITING_FOR_PAYMENT', 'PAYMENT_DONE', 'COMPLETED'].includes(b.status)) {
+                wallet_impact = { amount: company_amount, target: 'CAPTAIN', reason: 'PLATFORM_COMMISSION' };
+            }
+
+            return {
+                ...b,
+                total_amount: finalFare,
+                company_amount: Math.round(company_amount * 100) / 100,
+                captain_amount: Math.round(captain_amount * 100) / 100,
+                wallet_impact,
+            };
+        });
+
         return res.json({
             status: true,
             message: "Booking history fetched successfully",
             pagination: { total, page: pageNum, limit: limitNum, total_pages: Math.ceil(total / limitNum) },
-            data: rows
+            data
         });
 
     } catch (error) {

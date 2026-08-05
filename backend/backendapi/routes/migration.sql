@@ -63,3 +63,9 @@ CREATE TABLE IF NOT EXISTS `app_banners` (
   `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 9. Add access_fee to bookings table (In-City access fee, computed at ride completion,
+--    was previously only returned in the API response and never persisted — needed for
+--    the Accounts module to report the company's share of each In-City booking)
+ALTER TABLE bookings
+  ADD COLUMN IF NOT EXISTS access_fee DECIMAL(10,2) DEFAULT '0.00';

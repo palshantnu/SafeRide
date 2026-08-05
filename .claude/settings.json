@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(find /Users/shantnu/Desktop/Shantnu/shantnu -maxdepth 1 -type d)",
-      "Read(//Users/shantnu/Desktop/Shantnu/shantnu/**)"
+      "Read(//Users/shantnu/Desktop/Shantnu/shantnu/**)",
+      "Bash(grep -n \"plan_captain_commission\\\\|plan_company_commission\\\\|topup_captain_commission\\\\|topup_company_commission\\\\|ALTER TABLE \\\\`plans\\\\`\\\\|driver_amount\\\\|captain_commission\" /Users/shantnu/Desktop/Shantnu/shantnu/SafeRide/backend/backendapi/routes/migration.sql)",
+      "Bash(grep -n \"\\\\`status\\\\`\\\\|\\\\`user_status\\\\`\\\\|\\\\`driver_status\\\\`\\\\|\\\\`payment_mode\\\\`\\\\|\\\\`cancelled_by\\\\`\" /Users/shantnu/Desktop/Shantnu/shantnu/SafeRide/backend/backendapi/routes/saferide.sql)",
+      "Bash(grep -n \"CREATE TABLE \\\\`sub_services\\\\`\" -A 30 /Users/shantnu/Desktop/Shantnu/shantnu/SafeRide/backend/backendapi/routes/saferide.sql)",
+      "Bash(npx tsc *)"
     ]
   }
 }

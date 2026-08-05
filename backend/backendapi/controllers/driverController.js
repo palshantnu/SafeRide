@@ -1855,9 +1855,9 @@ exports.completeRide = async (req, res) => {
                     status = 'WAITING_FOR_PAYMENT',
                     user_status = 'WAITING_FOR_PAYMENT',
                     driver_status = 'WAITING_FOR_PAYMENT',
-                    actual_distance = ?, actual_fare = ?, end_lat = ?, end_lng = ?
+                    actual_distance = ?, actual_fare = ?, access_fee = ?, platform_fee = ?, end_lat = ?, end_lng = ?
                 WHERE id = ?
-            `, [finalDist, finalFare.toFixed(2), drop_lat, drop_lng, booking.id]);
+            `, [finalDist, finalFare.toFixed(2), accessFee.toFixed(2), platformFee.toFixed(2), drop_lat, drop_lng, booking.id]);
             // Deduct platform/access fees from driver's wallet for In-City bookings
             try {
                 const feeToDeduct = parseFloat(accessFee || 0) + parseFloat(platformFee || 0);

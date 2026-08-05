@@ -25,7 +25,8 @@ const PERMISSION_MODULES = [
     "notifications",
     "ratings",
     "withdrawals",
-    "locations"
+    "locations",
+    "accounts"
 ];
 
 // ══════════════════════════════════════════════════════
