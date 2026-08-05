@@ -750,19 +750,13 @@ exports.getBookingRequests = async (req, res) => {
 
         if (driver.sub_service_id) {
             const [[subService]] = await db.query(
-                `SELECT search_area, driver_min_wallet_balance FROM sub_services WHERE id = ?`,
+                `SELECT search_area FROM sub_services WHERE id = ?`,
                 [driver.sub_service_id]
             );
 
-            if (subService && parseFloat(driver.wallet) < parseFloat(subService.driver_min_wallet_balance || 0)) {
-                return res.status(403).json({
-                    status: false,
-                    message: `Insufficient wallet balance. Minimum required: ₹${subService.driver_min_wallet_balance}. Please recharge.`,
-                    wallet: driver.wallet,
-                    required: subService.driver_min_wallet_balance
-                });
-            }
-
+            // low wallet balance no longer blocks the booking list — captains should
+            // still see incoming requests even when negative; the balance is enforced
+            // only at accept time (see acceptBooking).
             searchArea = subService ? parseFloat(subService.search_area) : null;
         }
 
@@ -1289,7 +1283,7 @@ exports.acceptBooking = async (req, res) => {
         }
 
         const [[driver]] = await db.query(
-            `SELECT id, service_id, sub_service_id, status FROM drivers WHERE id = ?`,
+            `SELECT id, service_id, sub_service_id, status, wallet FROM drivers WHERE id = ?`,
             [driver_id]
         );
 
@@ -1299,6 +1293,13 @@ exports.acceptBooking = async (req, res) => {
 
         if (driver.status !== 'approved') {
             return res.status(403).json({ status: false, message: "Please get your KYC approved — only then you can accept bookings." });
+        }
+
+        if (parseFloat(driver.wallet || 0) <= -20) {
+            return res.status(400).json({
+                status: false,
+                message: "Low wallet balance. Please recharge your wallet to accept a ride."
+            });
         }
 
         const [booking] = await db.query(
