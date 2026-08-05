@@ -360,6 +360,7 @@ exports.userBookingHistory = async (req, res) => {
                 b.status,
                 b.user_status,
                 b.driver_status,
+                b.cancelled_by,
                 b.otp_verified,
                 b.user_rated,
                 b.created_at,
