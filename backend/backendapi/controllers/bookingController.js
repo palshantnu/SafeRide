@@ -25,9 +25,9 @@ exports.createBookingRequest = async (req, res) => {
             return res.status(400).json({ status: false, message: "drop_city is required for In-City service" });
         }
 
-        if (![1, 70].includes(parseInt(service_id)) && !to_city) {
-            return res.status(400).json({ status: false, message: "to_city is required for this service" });
-        }
+        // if (![1, 70].includes(parseInt(service_id)) && !to_city) {
+        //     return res.status(400).json({ status: false, message: "to_city is required for this service" });
+        // }
 
         if (parseInt(service_id) === 1) {
             if (!sub_service_id) {
