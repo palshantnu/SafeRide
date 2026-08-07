@@ -17,6 +17,7 @@ const ONSPOT_FIELDS = `
     ob.id, ob.booking_no, ob.user_id, ob.service_id, ob.sub_service_id, ob.plan_id,
     ob.city, ob.schedule_datetime, ob.full_address, ob.landmark, ob.remarks,
     ob.driver_id, ob.token_amount, ob.balance_amount, ob.total_amount,
+    ob.platform_fee, ob.access_fee,
     ob.token_paid, ob.balance_paid, ob.payment_mode, ob.otp_verified,
     ob.status, ob.cancelled_by, ob.cancel_reason, ob.user_rated,
     ob.started_at, ob.completed_at, ob.created_at, ob.updated_at
@@ -56,7 +57,8 @@ exports.createBooking = async (req, res) => {
         if (!service) return res.status(400).json({ status: false, message: "Invalid service" });
 
         const [[plan]] = await db.execute(
-            `SELECT id, service_id, sub_service_id, token_price, plan_price
+            `SELECT id, service_id, sub_service_id, token_price, plan_price,
+                    platform_fee, access_fee, access_fee_type
              FROM plans WHERE id = ? AND status = 1 AND deleted_at IS NULL`,
             [parseInt(plan_id)]
         );
@@ -81,7 +83,14 @@ exports.createBooking = async (req, res) => {
         }
         const formattedSchedule = scheduleMoment.format("YYYY-MM-DD HH:mm:ss");
 
-        const total_amount   = parseFloat(plan.plan_price)  || 0;
+        const planPrice   = parseFloat(plan.plan_price)  || 0;
+        const platformFee = parseFloat(plan.platform_fee || 0);
+        // access_fee can be a flat amount OR a percentage of the plan price (same convention as In-City)
+        const accessFeeCfg = parseFloat(plan.access_fee || 0);
+        const accessFee    = (plan.access_fee_type === 'percent')
+            ? Math.round(planPrice * accessFeeCfg) / 100
+            : accessFeeCfg;
+        const total_amount   = planPrice + platformFee + accessFee;
         const token_amount   = parseFloat(plan.token_price) || 0;
         const balance_amount = Math.max(0, Math.round((total_amount - token_amount) * 100) / 100);
 
@@ -92,12 +101,12 @@ exports.createBooking = async (req, res) => {
             INSERT INTO onspot_bookings
                 (booking_no, user_id, service_id, sub_service_id, plan_id,
                  city, schedule_datetime, full_address, landmark, remarks,
-                 token_amount, balance_amount, total_amount, otp, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NOW(), NOW())
+                 token_amount, balance_amount, total_amount, platform_fee, access_fee, otp, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NOW(), NOW())
         `, [
             booking_no, user_id, parseInt(service_id), parseInt(sub_service_id), parseInt(plan_id),
             city, formattedSchedule, full_address, landmark || null, remarks || null,
-            token_amount, balance_amount, total_amount, otp
+            token_amount, balance_amount, total_amount, platformFee, accessFee, otp
         ]);
 
         await notifyDriversByService(parseInt(service_id), parseInt(sub_service_id), "New on-spot booking",
@@ -108,6 +117,9 @@ exports.createBooking = async (req, res) => {
             message: "Booking created. Waiting for a service man to accept.",
             booking_no,
             fare: {
+                plan_price: planPrice.toFixed(2),
+                platform_fee: platformFee.toFixed(2),
+                access_fee: accessFee.toFixed(2),
                 token_amount: token_amount.toFixed(2),
                 balance_amount: balance_amount.toFixed(2),
                 total_amount: total_amount.toFixed(2)
@@ -755,13 +767,16 @@ exports.adminGetAllBookings = async (req, res) => {
         `, values);
 
         // Same plan-driven split as parcel; on-spot also has no persisted cancellation-fee column.
+        // Company's cut also includes the plan's platform_fee/access_fee (flat or percent,
+        // already resolved into a rupee amount at booking time — see onspotController.createBooking).
         // There's no generic `paid` column here at all — only `token_paid`/`balance_paid` — so
         // "settled" means the full balance has been collected, i.e. balance_paid = 1.
         const data = rows.map(b => ({
             ...b,
             paid: Number(b.balance_paid) === 1 ? 1 : 0,
             total_amount: parseFloat(b.total_fare || 0),
-            company_amount: parseFloat(b.plan_company_commission || 0),
+            company_amount: parseFloat(b.plan_company_commission || 0)
+                + parseFloat(b.platform_fee || 0) + parseFloat(b.access_fee || 0),
             captain_amount: parseFloat(b.plan_captain_commission || 0),
         }));
 

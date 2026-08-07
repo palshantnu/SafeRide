@@ -92,3 +92,14 @@ ALTER TABLE sigi_trips
 -- Note: Parcel bookings already have `pickup_otp_verified_at` (pickup/start) and
 -- `delivered_at` / `completed_at` (finish) — no new columns needed there, only the
 -- controller SELECTs were missing pickup_otp_verified_at (fixed in parcelController.js).
+
+-- 13. Parcel and On-Spot bookings previously charged only `plans.plan_price` — the
+--     plan's platform_fee/access_fee (flat or percent, same convention as In-City and
+--     Intercity/Rental) were never applied. Add the columns needed to persist them.
+ALTER TABLE parcel_bookings
+  ADD COLUMN IF NOT EXISTS platform_fee DECIMAL(10,2) DEFAULT '0.00',
+  ADD COLUMN IF NOT EXISTS access_fee   DECIMAL(10,2) DEFAULT '0.00';
+
+ALTER TABLE onspot_bookings
+  ADD COLUMN IF NOT EXISTS platform_fee DECIMAL(10,2) DEFAULT '0.00',
+  ADD COLUMN IF NOT EXISTS access_fee   DECIMAL(10,2) DEFAULT '0.00';

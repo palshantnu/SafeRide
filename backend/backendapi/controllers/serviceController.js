@@ -751,6 +751,7 @@ exports.getPlansBySubService = async (req, res) => {
           plan_company_commission,
           platform_fee,
           access_fee,
+          access_fee_type,
           driver_amount,
           booking_destroy_time,
           description,

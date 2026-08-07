@@ -149,17 +149,21 @@ exports.createBookingRequest = async (req, res) => {
             `SELECT id, plan_price, token_price, topup_price_perkm, sub_service_id,
                     topup_captain_commission, topup_company_commission,
                     plan_captain_commission, plan_company_commission,
-                    platform_fee, access_fee
+                    platform_fee, access_fee, access_fee_type
              FROM plans
              WHERE id = ? AND service_id = ? AND status = 1 AND deleted_at IS NULL`,
             [plan_id, service_id]
         );
 
         if (!plan) return res.status(400).json({ status: false, message: "Invalid plan for selected service" });
-        
+
         const planPrice   = parseFloat(plan.plan_price  || 0);
         const platformFee = parseFloat(plan.platform_fee || 0);
-        const accessFee   = parseFloat(plan.access_fee   || 0);
+        // access_fee can be a flat amount OR a percentage of the plan price (same convention as In-City)
+        const accessFeeCfg = parseFloat(plan.access_fee || 0);
+        const accessFee    = (plan.access_fee_type === 'percent')
+            ? Math.round(planPrice * accessFeeCfg) / 100
+            : accessFeeCfg;
         const tokenAmount = parseFloat(plan.token_price || 0);
         const subservice_id = plan.sub_service_id || null;
         const totalFare   = planPrice + platformFee + accessFee;
@@ -405,7 +409,7 @@ exports.getPlans = async (req, res) => {
                    plan_hour, plan_km, token_price,
                    topup_price_perkm, topup_captain_commission, topup_company_commission,
                    plan_price, plan_captain_commission, plan_company_commission,
-                   platform_fee, access_fee,
+                   platform_fee, access_fee, access_fee_type,
                    description, status, booking_destroy_time, created_at
             FROM plans
             WHERE service_id = ? AND sub_service_id = ? AND status = 1 AND deleted_at IS NULL

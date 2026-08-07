@@ -23,7 +23,7 @@ const PARCEL_FIELDS = `
     pb.pickup_address, pb.pickup_landmark,
     pb.drop_city, pb.drop_address, pb.drop_landmark,
     pb.receiver_name, pb.receiver_mobile, pb.approx_weight, pb.weight_type, pb.packaging_material_type, pb.loading_unloading,
-    pb.remarks, pb.amount, pb.actual_amount, pb.token_amount, pb.balance_amount,
+    pb.remarks, pb.amount, pb.actual_amount, pb.platform_fee, pb.access_fee, pb.token_amount, pb.balance_amount,
     pb.payment_mode, pb.paid, pb.paid_at, pb.balance_paid,
     pb.pickup_image, pb.delivery_image,
     pb.pickup_otp_verified, pb.pickup_otp_verified_at, pb.delivery_otp_verified,
@@ -70,7 +70,8 @@ exports.createBooking = async (req, res) => {
         if (!service) return res.status(400).json({ status: false, message: "Invalid service" });
 
         const [[plan]] = await db.execute(
-            `SELECT id, service_id, sub_service_id, token_price, plan_price
+            `SELECT id, service_id, sub_service_id, token_price, plan_price,
+                    platform_fee, access_fee, access_fee_type
              FROM plans WHERE id = ? AND status = 1 AND deleted_at IS NULL`,
             [parseInt(plan_id)]
         );
@@ -82,8 +83,15 @@ exports.createBooking = async (req, res) => {
             return res.status(400).json({ status: false, message: "Plan does not belong to this sub-service" });
         }
 
-        const amount       = parseFloat(plan.plan_price)  || 0;
-        const token_amount = parseFloat(plan.token_price) || 0;
+        const planPrice   = parseFloat(plan.plan_price)  || 0;
+        const platformFee = parseFloat(plan.platform_fee || 0);
+        // access_fee can be a flat amount OR a percentage of the plan price (same convention as In-City)
+        const accessFeeCfg = parseFloat(plan.access_fee || 0);
+        const accessFee    = (plan.access_fee_type === 'percent')
+            ? Math.round(planPrice * accessFeeCfg) / 100
+            : accessFeeCfg;
+        const amount        = planPrice + platformFee + accessFee;
+        const token_amount  = parseFloat(plan.token_price) || 0;
         const balance_amount = Math.max(0, Math.round((amount - token_amount) * 100) / 100);
 
         const parcel_booking_id = genId("PB");
@@ -97,16 +105,16 @@ exports.createBooking = async (req, res) => {
                  pickup_address, pickup_landmark,
                  drop_city, drop_address, drop_landmark,
                  receiver_name, receiver_mobile, approx_weight, weight_type, packaging_material_type, loading_unloading,
-                 remarks, amount, actual_amount, token_amount, balance_amount,
+                 remarks, amount, actual_amount, platform_fee, access_fee, token_amount, balance_amount,
                  pickup_otp, delivery_otp, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())
         `, [
             parcel_booking_id, user_id, parseInt(service_id), sub_service_id || null, parseInt(plan_id),
             pickup_city, pickup_date, pickup_time,
             pickup_address, pickup_landmark || null,
             drop_city, drop_address, drop_landmark || null,
             receiver_name, receiver_mobile, parseFloat(approx_weight), weight_type || null, packaging_material_type, loading_unloading,
-            remarks || null, amount, amount, token_amount, balance_amount,
+            remarks || null, amount, amount, platformFee, accessFee, token_amount, balance_amount,
             pickup_otp, delivery_otp
         ]);
 
@@ -118,6 +126,9 @@ exports.createBooking = async (req, res) => {
             message: "Parcel booking created. Waiting for a captain to accept.",
             parcel_booking_id,
             fare: {
+                plan_price: planPrice.toFixed(2),
+                platform_fee: platformFee.toFixed(2),
+                access_fee: accessFee.toFixed(2),
                 amount: amount.toFixed(2),
                 token_amount: token_amount.toFixed(2),
                 balance_amount: balance_amount.toFixed(2)
@@ -958,6 +969,8 @@ exports.adminGetAllBookings = async (req, res) => {
 
         // Company/captain split comes straight off the plan (parcel has no cancellation-fee
         // concept in the schema today — cancelled bookings just flip status, nothing is charged).
+        // Company's cut also includes the plan's platform_fee/access_fee (flat or percent,
+        // already resolved into a rupee amount at booking time — see parcelController.createBooking).
         // `paid` on this table only ever means "token paid" (see payToken's "Token already paid"
         // guard) — the full amount is only collected once `balance_paid` flips, so that's the
         // signal to treat as "settled" here, not the raw `paid` column.
@@ -965,7 +978,8 @@ exports.adminGetAllBookings = async (req, res) => {
             ...b,
             paid: Number(b.balance_paid) === 1 ? 1 : 0,
             total_amount: parseFloat(b.actual_fare || b.total_fare || 0),
-            company_amount: parseFloat(b.plan_company_commission || 0),
+            company_amount: parseFloat(b.plan_company_commission || 0)
+                + parseFloat(b.platform_fee || 0) + parseFloat(b.access_fee || 0),
             captain_amount: parseFloat(b.plan_captain_commission || 0),
         }));
 
