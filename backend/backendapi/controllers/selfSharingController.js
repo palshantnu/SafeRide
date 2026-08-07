@@ -609,21 +609,44 @@ exports.getAvailableTrips = async (req, res) => {
                 CASE t.creator_type
                     WHEN 'DRIVER' THEN d.phone
                     WHEN 'BA'     THEN ba.ba_mobile
-                END AS creator_mobile
+                END AS creator_mobile,
+                ss.access_fee, ss.access_fee_type, ss.platform_fee
             FROM sigi_trips t
             LEFT JOIN services s             ON s.id  = t.service_id
             LEFT JOIN drivers d              ON t.creator_type = 'DRIVER' AND d.id = t.creator_id
             LEFT JOIN business_associates ba ON t.creator_type = 'BA'     AND ba.id = t.creator_id
+            LEFT JOIN drivers operating_driver ON operating_driver.id = CASE t.creator_type WHEN 'DRIVER' THEN t.creator_id ELSE t.assigned_driver_id END
+            LEFT JOIN sub_services ss        ON ss.id = operating_driver.sub_service_id
             ${where}
             ORDER BY t.departure_time ASC
             LIMIT ${limitNum} OFFSET ${offset}
         `, values);
 
+        // Show the same fee-inclusive fare the passenger will actually be charged at
+        // booking time (see selfSharingController.createBooking) — platform_fee/access_fee
+        // come from the operating captain's sub_service, not shown separately before now,
+        // which made the browsed price look cheaper than what booking actually charged.
+        const data = rows.map(t => {
+            const baseFare    = parseFloat(t.full_fare || 0);
+            const platformFee = parseFloat(t.platform_fee || 0);
+            const accessFeeCfg = parseFloat(t.access_fee || 0);
+            const accessFee    = (t.access_fee_type === 'percent')
+                ? Math.round(baseFare * accessFeeCfg) / 100
+                : accessFeeCfg;
+            return {
+                ...t,
+                base_full_fare: baseFare.toFixed(2),
+                platform_fee: platformFee.toFixed(2),
+                access_fee: accessFee.toFixed(2),
+                full_fare: (baseFare + platformFee + accessFee).toFixed(2),
+            };
+        });
+
         return res.json({
             status: true,
             message: "Available trips fetched",
             pagination: { total, page: pageNum, limit: limitNum, total_pages: Math.ceil(total / limitNum) },
-            data: rows
+            data
         });
 
     } catch (error) {
