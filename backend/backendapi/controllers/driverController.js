@@ -1114,8 +1114,8 @@ exports.getDriverBookingHistory = async (req, res) => {
                 p.plan_name,
                 p.plan_price,
                 p.plan_captain_commission,
-                p.platform_fee AS plan_platform_fee,
-                p.access_fee   AS plan_access_fee,
+                b.platform_fee,
+                b.access_fee,
 
                 ss.fixed_charge,
                 ss.fixed_charge_km,
@@ -1199,14 +1199,12 @@ exports.getDriverBookingHistory = async (req, res) => {
                 booking.final_fare   = booking.total_fare ?? null;
                 // Captain earning = plan_captain_commission + Σ(PAID topup captain_commission)
                 booking.driver_amount = computeDriverAmount(booking.plan_captain_commission, topups);
-                // Other services: fees come from the plan
-                booking.access_fee   = booking.plan_access_fee != null ? parseFloat(booking.plan_access_fee) : null;
-                booking.platform_fee = booking.plan_platform_fee != null ? parseFloat(booking.plan_platform_fee) : null;
+                // Other services: access_fee/platform_fee already resolved (flat or percent)
+                // at booking-creation time — see bookingController.createBookingRequest —
+                // and stored on the booking row itself, so no further derivation needed here.
             }
 
             // strip raw helper columns from the response
-            booking.plan_platform_fee         = undefined;
-            booking.plan_access_fee           = undefined;
             booking.fixed_charge              = undefined;
             booking.fixed_charge_km           = undefined;
             booking.charge_after_fixed_per_km = undefined;
