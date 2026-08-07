@@ -104,7 +104,7 @@ function PlanModal({ mode, plan, allServices, onClose, onSave }: {
     plan_company_commission:  String(plan?.plan_company_commission  ?? ''),
     platform_fee:             String(plan?.platform_fee             ?? ''),
     access_fee:               String(plan?.access_fee               ?? ''),
-    access_fee_type:          plan?.access_fee_type                 || 'percent',
+    access_fee_type:          plan?.access_fee_type                 || 'flat',
     description:              plan?.description                     || '',
     booking_destroy_time:     String(plan?.booking_destroy_time     ?? ''),
     status:                   plan?.status                          ?? 1,
@@ -176,9 +176,15 @@ function PlanModal({ mode, plan, allServices, onClose, onSave }: {
     setLoading(true);
     try {
       const fd = new FormData();
+      // platform_fee/access_fee must always be sent explicitly (even when left blank →
+      // "0") so a blank field really clears the fee instead of silently keeping the old
+      // saved value on edit (backend falls back to the existing value when the key is
+      // missing from the request body entirely).
+      const ALWAYS_SEND = ['platform_fee', 'access_fee'];
       Object.entries(form).forEach(([k, v]) => {
         if (k === 'image') { if (v) fd.append('image', v as File); return; }
-        if (v !== '') fd.append(k, String(v));
+        if (v !== '') { fd.append(k, String(v)); return; }
+        if (ALWAYS_SEND.includes(k)) fd.append(k, '0');
       });
       await onSave(fd);
     } catch { /* parent handles */ } finally { setLoading(false); }
@@ -700,6 +706,8 @@ export default function PlanList() {
                   { label: 'Token',       align: 'center' },
                   { label: 'Topup/KM',    align: 'center' },
                   { label: 'Price',       align: 'center' },
+                  { label: 'Platform Fee',align: 'center' },
+                  { label: 'Access Fee',  align: 'center' },
                   { label: 'Status',      align: 'center' },
                   { label: 'Actions',     align: 'right'  },
                 ] as { label: string; align: React.CSSProperties['textAlign'] }[]).map(({ label, align }) => (
@@ -712,7 +720,7 @@ export default function PlanList() {
             <tbody>
               {loading && Array.from({ length: PER_PAGE }).map((_, i) => (
                 <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  {Array.from({ length: 10 }).map((__, j) => (
+                  {Array.from({ length: 12 }).map((__, j) => (
                     <td key={j} style={{ padding: '14px' }}>
                       <div style={{ height: '14px', borderRadius: '6px', background: '#f1f5f9', animation: 'pulse 1.5s ease infinite', width: j === 1 ? '60%' : '45%' }} />
                     </td>
@@ -722,7 +730,7 @@ export default function PlanList() {
 
               {!loading && paginatedData.length === 0 && (
                 <tr>
-                  <td colSpan={10} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+                  <td colSpan={12} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
                     {search ? 'No plans match your search.' : 'No plans found. Add your first one!'}
                   </td>
                 </tr>
@@ -795,6 +803,23 @@ export default function PlanList() {
                     {/* Price */}
                     <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                       <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>₹{plan.plan_price || '—'}</span>
+                    </td>
+
+                    {/* Platform Fee */}
+                    <td style={{ padding: '12px 14px', textAlign: 'center', fontSize: '13px', color: '#64748b' }}>
+                      {plan.platform_fee ? `₹${plan.platform_fee}` : <span style={{ color: '#cbd5e1' }}>—</span>}
+                    </td>
+
+                    {/* Access Fee */}
+                    <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                      {plan.access_fee ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: '#64748b' }}>
+                          {plan.access_fee_type === 'percent' ? `${plan.access_fee}%` : `₹${plan.access_fee}`}
+                          <span style={{ fontSize: '10px', color: '#94a3b8', background: '#f1f5f9', padding: '1px 6px', borderRadius: '10px', fontWeight: 600, textTransform: 'uppercase' }}>
+                            {plan.access_fee_type || 'flat'}
+                          </span>
+                        </span>
+                      ) : <span style={{ color: '#cbd5e1' }}>—</span>}
                     </td>
 
                     {/* Status toggle */}
