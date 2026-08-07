@@ -26,7 +26,7 @@ const PARCEL_FIELDS = `
     pb.remarks, pb.amount, pb.actual_amount, pb.token_amount, pb.balance_amount,
     pb.payment_mode, pb.paid, pb.paid_at, pb.balance_paid,
     pb.pickup_image, pb.delivery_image,
-    pb.pickup_otp_verified, pb.delivery_otp_verified,
+    pb.pickup_otp_verified, pb.pickup_otp_verified_at, pb.delivery_otp_verified,
     pb.status, pb.user_status, pb.driver_status, pb.cancelled_by, pb.cancel_reason, pb.user_rated,
     pb.completed_at, pb.delivered_at, pb.created_at, pb.updated_at
 `;

@@ -356,7 +356,7 @@ exports.startTrip = async (req, res) => {
         }
 
         await db.execute(
-            `UPDATE sigi_trips SET status = 'STARTED', updated_at = NOW() WHERE id = ?`,
+            `UPDATE sigi_trips SET status = 'STARTED', started_at = NOW(), updated_at = NOW() WHERE id = ?`,
             [trip.id]
         );
 
@@ -394,7 +394,7 @@ exports.completeTrip = async (req, res) => {
         }
 
         await db.execute(`
-            UPDATE sigi_trips SET status = 'COMPLETED', updated_at = NOW() WHERE id = ?
+            UPDATE sigi_trips SET status = 'COMPLETED', completed_at = NOW(), updated_at = NOW() WHERE id = ?
         `, [trip.id]);
 
         await db.execute(`
@@ -1055,6 +1055,8 @@ exports.adminGetAllBookings = async (req, res) => {
                    st.from_city AS pickup_city,
                    st.to_city AS drop_city,
                    st.departure_time AS schedule_date,
+                   st.started_at AS ride_started_at,
+                   st.completed_at AS ride_completed_at,
                    s.title AS service_name,
                    u.name AS user_name, u.mobile AS user_mobile, u.wallet AS user_wallet,
                    COALESCE(assigned_driver.id, CASE WHEN st.creator_type = 'DRIVER' THEN creator_driver.id END) AS driver_id,

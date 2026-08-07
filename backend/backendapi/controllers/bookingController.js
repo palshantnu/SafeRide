@@ -253,6 +253,7 @@ exports.getBookingHistory = async (req, res) => {
                 b.platform_fee, b.access_fee, b.paid, b.balance_paid, b.payment_mode,
                 b.token_amount, b.balance_amount,
                 b.person, b.schedule_date, b.created_at,
+                b.ride_started_at, b.ride_completed_at,
                 u.id AS user_id, u.name AS user_name, u.mobile AS user_mobile, u.wallet AS user_wallet,
                 d.id AS driver_id, d.full_name AS driver_name, d.phone AS driver_mobile, d.wallet AS driver_wallet,
                 s.title AS service_name,

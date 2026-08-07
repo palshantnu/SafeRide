@@ -40,6 +40,8 @@ interface Booking {
   cancelled_by?: string | null;
   created_at?: string;
   service_name?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
   [key: string]: unknown;
 }
 
@@ -64,6 +66,10 @@ const getStatus = (s?: string | null) =>
 
 const fmtDate = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const fmtFull = (d?: string | null) =>
+  d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+const fmtTime = (d?: string | null) =>
+  d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—';
 const fmtAmt = (v?: string | number | null) =>
   v != null && parseFloat(String(v)) > 0 ? `₹${parseFloat(String(v)).toFixed(2)}` : '—';
 
@@ -120,6 +126,8 @@ function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => vo
           {booking.cancel_reason && <Row label="Cancel Reason" value={booking.cancel_reason} />}
           <Row label="Scheduled"     value={fmtDate(scheduledAt)} />
           <Row label="Created"       value={fmtDate(booking.created_at)} />
+          <Row label="Work Started"  value={booking.started_at ? fmtFull(booking.started_at) : '—'} />
+          <Row label="Work Finished" value={booking.completed_at ? fmtFull(booking.completed_at) : '—'} />
         </div>
       </div>
     </div>
@@ -239,7 +247,7 @@ export default function OnSpotHistory() {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 860 }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #f1f5f9' }}>
-                  {['#', 'Booking ID', 'User', 'Captain', 'Route', 'Sub Service', 'Fare', 'Date', 'Status', 'Actions'].map(h => (
+                  {['#', 'Booking ID', 'User', 'Captain', 'Route', 'Sub Service', 'Fare', 'Date', 'Work Time', 'Status', 'Actions'].map(h => (
                     <th key={h} style={{ padding: '11px 14px', fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap', textAlign: 'left' }}>{h}</th>
                   ))}
                 </tr>
@@ -247,13 +255,13 @@ export default function OnSpotHistory() {
               <tbody>
                 {loading && Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    {Array.from({ length: 10 }).map((__, j) => (
+                    {Array.from({ length: 11 }).map((__, j) => (
                       <td key={j} style={{ padding: 14 }}><div style={{ height: 12, borderRadius: 6, background: '#f1f5f9', animation: 'pulse 1.5s ease infinite', width: '65%' }} /></td>
                     ))}
                   </tr>
                 ))}
                 {!loading && paginated.length === 0 && (
-                  <tr><td colSpan={10} style={{ padding: 48, textAlign: 'center' }}>
+                  <tr><td colSpan={11} style={{ padding: 48, textAlign: 'center' }}>
                     <Zap size={32} color="#e2e8f0" style={{ display: 'block', margin: '0 auto 10px' }} />
                     <div style={{ color: '#94a3b8', fontSize: 13 }}>No On Spot bookings found.</div>
                   </td></tr>
@@ -284,6 +292,14 @@ export default function OnSpotHistory() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Calendar size={11} />{fmtDate(b.schedule_date || b.schedule_datetime || b.created_at)}
                       </div>
+                    </td>
+                    <td style={{ padding: '11px 14px' }}>
+                      {b.started_at || b.completed_at ? (
+                        <div style={{ fontSize: 10, color: '#64748b', whiteSpace: 'nowrap' }}>
+                          <div>Start: <b style={{ color: '#166534' }}>{fmtTime(b.started_at)}</b></div>
+                          <div style={{ marginTop: 2 }}>End: <b style={{ color: '#991b1b' }}>{fmtTime(b.completed_at)}</b></div>
+                        </div>
+                      ) : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
                     </td>
                     <td style={{ padding: '11px 14px' }}><StatusBadge status={b.status} /></td>
                     <td style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>

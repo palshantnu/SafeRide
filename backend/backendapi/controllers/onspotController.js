@@ -19,7 +19,7 @@ const ONSPOT_FIELDS = `
     ob.driver_id, ob.token_amount, ob.balance_amount, ob.total_amount,
     ob.token_paid, ob.balance_paid, ob.payment_mode, ob.otp_verified,
     ob.status, ob.cancelled_by, ob.cancel_reason, ob.user_rated,
-    ob.completed_at, ob.created_at, ob.updated_at
+    ob.started_at, ob.completed_at, ob.created_at, ob.updated_at
 `;
 
 const findDriverBooking = async (booking_no, driver_id) => {
@@ -489,7 +489,7 @@ exports.verifyOtp = async (req, res) => {
 
         await db.execute(`
             UPDATE onspot_bookings
-            SET otp_verified = 1, status = 'IN_PROGRESS', updated_at = NOW()
+            SET otp_verified = 1, status = 'IN_PROGRESS', started_at = NOW(), updated_at = NOW()
             WHERE id = ?
         `, [booking.id]);
 

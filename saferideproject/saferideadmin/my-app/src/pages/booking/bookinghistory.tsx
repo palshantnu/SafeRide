@@ -35,6 +35,8 @@ interface Booking {
   schedule_date: string | null;
   otp: number | null;
   created_at: string;
+  ride_started_at: string | null;
+  ride_completed_at: string | null;
   user_id: number;
   user_name: string | null;
   user_mobile: string;
@@ -89,6 +91,7 @@ const getStatus = (s?: string) =>
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const fmtDate  = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtFull  = (d?: string | null) => d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+const fmtTime  = (d?: string | null) => d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—';
 const fmtAmt   = (v?: string | null) => v && parseFloat(v) > 0 ? `₹${parseFloat(v).toFixed(2)}` : v ? `₹${v}` : '—';
 
 // ─── DETAIL MODAL ─────────────────────────────────────────────────────────────
@@ -266,6 +269,8 @@ function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => vo
           <Row label="Booking Status" value={<StatusBadge s={booking.status} />} />
           <Row label="User Status"    value={<StatusBadge s={booking.user_status} />} />
           <Row label="Captain Status" value={<StatusBadge s={booking.driver_status} />} />
+          <Row label="Ride Started"   value={booking.ride_started_at ? fmtFull(booking.ride_started_at) : '—'} />
+          <Row label="Ride Finished"  value={booking.ride_completed_at ? fmtFull(booking.ride_completed_at) : '—'} />
           {booking.cancelled_by && booking.cancelled_by !== 'NONE' && <>
             <Row label="Cancelled By"  value={<span style={{ background: '#fee2e2', color: '#991b1b', padding: '2px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 600 }}>{booking.cancelled_by}</span>} />
             <Row label="Cancel Reason" value={booking.cancel_reason || '—'} />
@@ -482,6 +487,7 @@ export default function BookingHistory() {
                     { label: 'Topup',          align: 'right'  },
                     { label: 'Payment',        align: 'center' },
                     { label: 'Date',           align: 'center' },
+                    { label: 'Ride Time',      align: 'center' },
                     { label: 'Status',         align: 'center' },
                     { label: '',               align: 'center' },
                   ] as { label: string; align: React.CSSProperties['textAlign'] }[]).map(({ label, align }, i) => (
@@ -495,7 +501,7 @@ export default function BookingHistory() {
               <tbody>
                 {loading && Array.from({ length: PER_PAGE }).map((_, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    {Array.from({ length: 12 }).map((__, j) => (
+                    {Array.from({ length: 13 }).map((__, j) => (
                       <td key={j} style={{ padding: '14px' }}>
                         <div style={{ height: '13px', borderRadius: '6px', background: '#f1f5f9', animation: 'pulse 1.5s ease infinite', width: j === 0 ? '30%' : '70%' }} />
                       </td>
@@ -505,7 +511,7 @@ export default function BookingHistory() {
 
                 {!loading && paginated.length === 0 && (
                   <tr>
-                    <td colSpan={12} style={{ padding: '56px', textAlign: 'center' }}>
+                    <td colSpan={13} style={{ padding: '56px', textAlign: 'center' }}>
                       <Search size={32} color="#e2e8f0" style={{ display: 'block', margin: '0 auto 10px' }} />
                       <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: 500 }}>
                         {hasFilter ? 'No bookings match your filters.' : 'No bookings found.'}
@@ -632,6 +638,18 @@ export default function BookingHistory() {
                         <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '3px', justifyContent: 'center', whiteSpace: 'nowrap' }}>
                           <Calendar size={10} />{fmtDate(b.created_at)}
                         </div>
+                      </td>
+
+                      {/* Ride Time */}
+                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                        {b.ride_started_at || b.ride_completed_at ? (
+                          <div style={{ fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                            <div>Start: <b style={{ color: '#166534' }}>{fmtTime(b.ride_started_at)}</b></div>
+                            <div style={{ marginTop: '2px' }}>End: <b style={{ color: '#991b1b' }}>{fmtTime(b.ride_completed_at)}</b></div>
+                          </div>
+                        ) : (
+                          <span style={{ color: '#cbd5e1', fontSize: '11px' }}>—</span>
+                        )}
                       </td>
 
                       {/* Status */}

@@ -1511,7 +1511,7 @@ exports.bookingverifyOtp = async (req, res) => {
             return res.status(400).json({ status: false, message: "Invalid OTP" });
         }
 
-        const updateFields = `otp_verified = 1, status = 'STARTED', user_status = 'STARTED', driver_status = 'STARTED'`;
+        const updateFields = `otp_verified = 1, status = 'STARTED', user_status = 'STARTED', driver_status = 'STARTED', ride_started_at = NOW()`;
 
         if (parseInt(booking.service_id) === 1) {
             await db.query(`
@@ -1865,7 +1865,8 @@ exports.completeRide = async (req, res) => {
                     status = 'WAITING_FOR_PAYMENT',
                     user_status = 'WAITING_FOR_PAYMENT',
                     driver_status = 'WAITING_FOR_PAYMENT',
-                    actual_distance = ?, actual_fare = ?, access_fee = ?, platform_fee = ?, end_lat = ?, end_lng = ?
+                    actual_distance = ?, actual_fare = ?, access_fee = ?, platform_fee = ?, end_lat = ?, end_lng = ?,
+                    ride_completed_at = NOW()
                 WHERE id = ?
             `, [finalDist, finalFare.toFixed(2), accessFee.toFixed(2), platformFee.toFixed(2), drop_lat, drop_lng, booking.id]);
             // Deduct platform/access fees from driver's wallet for In-City bookings
@@ -1882,7 +1883,7 @@ exports.completeRide = async (req, res) => {
             await db.query(`
                 UPDATE bookings SET
                     status = 'COMPLETED', user_status = 'COMPLETED', driver_status = 'COMPLETED',
-                    actual_distance = ?, actual_fare = ?
+                    actual_distance = ?, actual_fare = ?, ride_completed_at = NOW()
                 WHERE id = ?
             `, [finalDist, finalFare.toFixed(2), booking.id]);
         }

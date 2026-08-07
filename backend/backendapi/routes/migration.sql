@@ -69,3 +69,26 @@ CREATE TABLE IF NOT EXISTS `app_banners` (
 --    the Accounts module to report the company's share of each In-City booking)
 ALTER TABLE bookings
   ADD COLUMN IF NOT EXISTS access_fee DECIMAL(10,2) DEFAULT '0.00';
+
+-- 10. Ride start/finish timestamps — captured when the OTP is verified (ride actually
+--     starts) and when the driver completes the ride (meter stops), so the admin history
+--     pages can show how long each ride actually took (In-City + Rental/Intercity share
+--     the `bookings` table).
+ALTER TABLE bookings
+  ADD COLUMN IF NOT EXISTS ride_started_at   TIMESTAMP NULL DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS ride_completed_at TIMESTAMP NULL DEFAULT NULL;
+
+-- 11. Same start/finish timestamps for On-Spot bookings (delivery already has
+--     `completed_at` — this adds the missing "work started" timestamp).
+ALTER TABLE onspot_bookings
+  ADD COLUMN IF NOT EXISTS started_at TIMESTAMP NULL DEFAULT NULL;
+
+-- 12. Same start/finish timestamps for Self-Sharing trips (start = driver starts the
+--     trip after boarding, finish = driver marks the trip complete).
+ALTER TABLE sigi_trips
+  ADD COLUMN IF NOT EXISTS started_at   TIMESTAMP NULL DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP NULL DEFAULT NULL;
+
+-- Note: Parcel bookings already have `pickup_otp_verified_at` (pickup/start) and
+-- `delivered_at` / `completed_at` (finish) — no new columns needed there, only the
+-- controller SELECTs were missing pickup_otp_verified_at (fixed in parcelController.js).
