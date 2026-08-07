@@ -132,7 +132,7 @@ function SubServiceModal({ mode, subService, services, onClose, onSave }: SubSer
     fixed_charge_km:          str(subService?.fixed_charge_km),
     charge_after_fixed_per_km:str(subService?.charge_after_fixed_per_km),
     access_fee:               str(subService?.access_fee),
-    access_fee_type:          subService?.access_fee_type || 'percent',
+    access_fee_type:          subService?.access_fee_type || 'flat',
     platform_fee:             str(subService?.platform_fee),
     booking_destroy_min:          str(subService?.booking_destroy_min),
     user_cancel_before48_type:  subService?.user_cancel_before48_type  || 'flat',
@@ -214,10 +214,12 @@ function SubServiceModal({ mode, subService, services, onClose, onSave }: SubSer
         fd.append('fixed_charge',               form.fixed_charge               || '0');
         fd.append('fixed_charge_km',            form.fixed_charge_km            || '0');
         fd.append('charge_after_fixed_per_km',  form.charge_after_fixed_per_km  || '0');
-        fd.append('access_fee_type',             form.access_fee_type            || 'percent');
-        fd.append('access_fee',                 form.access_fee                 || '0');
-        fd.append('platform_fee',               form.platform_fee               || '0');
       }
+      // Access Fee / Platform Fee apply to every service's sub-services (Intercity, Rental,
+      // Self-Sharing, etc.), not just In-City — always send them, not gated to isInCity.
+      fd.append('access_fee_type', form.access_fee_type || 'flat');
+      fd.append('access_fee',      form.access_fee       || '0');
+      fd.append('platform_fee',    form.platform_fee     || '0');
       if (form.image) fd.append('image', form.image);
       await onSave(fd);
     } catch {
@@ -365,7 +367,31 @@ function SubServiceModal({ mode, subService, services, onClose, onSave }: SubSer
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
             {numInp('Captain Min Wallet Balance', 'driver_min_wallet_balance')}
             {numInp('Search Area (km)', 'search_area')}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Access Fee</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <select
+                  value={form.access_fee_type}
+                  onChange={e => setF('access_fee_type', e.target.value)}
+                  style={{ padding: '7px 10px', borderRadius: '8px', border: '1.5px solid #e2e8f0', fontSize: '13px', color: '#0f172a', background: 'white', outline: 'none', cursor: 'pointer' }}
+                >
+                  <option value="flat">Flat (₹)</option>
+                  <option value="percent">Percentage (%)</option>
+                </select>
+                <input
+                  type="number" min="0" step="0.01" placeholder="0.00"
+                  value={form.access_fee}
+                  onChange={e => setF('access_fee', e.target.value)}
+                  style={{ padding: '7px 10px', borderRadius: '8px', border: '1.5px solid #e2e8f0', fontSize: '13px', color: '#0f172a', background: 'white', outline: 'none', width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+            {numInp('Platform Fee (₹)', 'platform_fee')}
+            {numInp('Booking Destroy (min)', 'booking_destroy_min')}
           </div>
+          <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>
+            Access Fee / Platform Fee apply to whichever service this sub-service belongs to (In-City, Intercity, Self-Sharing, etc.).
+          </p>
         </div>
 
         {/* ── In City Pricing Fields ── */}
@@ -376,27 +402,6 @@ function SubServiceModal({ mode, subService, services, onClose, onSave }: SubSer
               {numInp('Fixed Charge (₹) Captain', 'fixed_charge')}
               {numInp('Fixed Charge Included KM Captain', 'fixed_charge_km')}
               {numInp('Charge After Fixed Per KM (₹) Captain', 'charge_after_fixed_per_km')}
-              <div style={{ gridColumn: '1 / -1' }}>
-                <label style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Access Fee</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <select
-                    value={form.access_fee_type}
-                    onChange={e => setF('access_fee_type', e.target.value)}
-                    style={{ padding: '7px 10px', borderRadius: '8px', border: '1.5px solid #e2e8f0', fontSize: '13px', color: '#0f172a', background: 'white', outline: 'none', cursor: 'pointer' }}
-                  >
-                    <option value="flat">Flat (₹)</option>
-                    <option value="percent">Percentage (%)</option>
-                  </select>
-                  <input
-                    type="number" min="0" step="0.01" placeholder="0.00"
-                    value={form.access_fee}
-                    onChange={e => setF('access_fee', e.target.value)}
-                    style={{ padding: '7px 10px', borderRadius: '8px', border: '1.5px solid #e2e8f0', fontSize: '13px', color: '#0f172a', background: 'white', outline: 'none', width: '100%', boxSizing: 'border-box' }}
-                  />
-                </div>
-              </div>
-              {numInp('Platform Fee (₹)', 'platform_fee')}
-              {numInp('Booking Destroy (min)', 'booking_destroy_min')}
             </div>
           </div>
         )}

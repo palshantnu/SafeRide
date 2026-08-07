@@ -103,3 +103,12 @@ ALTER TABLE parcel_bookings
 ALTER TABLE onspot_bookings
   ADD COLUMN IF NOT EXISTS platform_fee DECIMAL(10,2) DEFAULT '0.00',
   ADD COLUMN IF NOT EXISTS access_fee   DECIMAL(10,2) DEFAULT '0.00';
+
+-- 14. Self-Sharing passenger bookings (also used by "Inter city", service_id 73 — both
+--     share this same sigi_bookings flow) previously had no platform_fee/access_fee
+--     concept at all. Fee config comes from the operating captain's own sub_service
+--     (same sub_services table + flat/percent convention used everywhere else), added
+--     on top of what the passenger pays — see selfSharingController.createBooking.
+ALTER TABLE sigi_bookings
+  ADD COLUMN IF NOT EXISTS platform_fee DECIMAL(10,2) DEFAULT '0.00',
+  ADD COLUMN IF NOT EXISTS access_fee   DECIMAL(10,2) DEFAULT '0.00';

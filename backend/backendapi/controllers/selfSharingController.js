@@ -676,9 +676,35 @@ exports.createBooking = async (req, res) => {
             });
         }
 
-        const token_amount   = parseFloat(trip.token_fare) * seatCount;
-        const balance_amount = parseFloat(trip.full_fare) * seatCount - token_amount;
-        const total_fare     = parseFloat(trip.full_fare) * seatCount;
+        const token_amount = parseFloat(trip.token_fare) * seatCount;
+        const baseFare     = parseFloat(trip.full_fare) * seatCount;
+
+        // Platform fee / access fee come from the operating captain's own sub_service
+        // (same sub_services table + flat/percent convention used everywhere else),
+        // added on top of what the passenger pays. No captain assigned yet (BA trip,
+        // not yet assigned) → no fee applied until one is.
+        const driverId = trip.creator_type === 'DRIVER' ? trip.creator_id : trip.assigned_driver_id;
+        let platformFee = 0;
+        let accessFee    = 0;
+        if (driverId) {
+            const [[driver]] = await db.execute(`SELECT sub_service_id FROM drivers WHERE id = ?`, [driverId]);
+            if (driver?.sub_service_id) {
+                const [[ss]] = await db.execute(
+                    `SELECT access_fee, access_fee_type, platform_fee FROM sub_services WHERE id = ?`,
+                    [driver.sub_service_id]
+                );
+                if (ss) {
+                    platformFee = parseFloat(ss.platform_fee || 0);
+                    const accessFeeCfg = parseFloat(ss.access_fee || 0);
+                    accessFee = (ss.access_fee_type === 'percent')
+                        ? Math.round(baseFare * accessFeeCfg) / 100
+                        : accessFeeCfg;
+                }
+            }
+        }
+
+        const total_fare     = baseFare + platformFee + accessFee;
+        const balance_amount = total_fare - token_amount;
         const isLateBooking = trip.status === "BOARDING";
         const balancePaidFlag = isLateBooking ? 1 : 0;
         const bookingStatus   = isLateBooking ? "CONFIRMED" : "TOKEN_PAID";
@@ -694,9 +720,10 @@ exports.createBooking = async (req, res) => {
         const [insertResult] = await db.execute(`
             INSERT INTO sigi_bookings
                 (booking_id, trip_id, user_id, seats, token_amount, balance_amount, total_fare,
+                 platform_fee, access_fee,
                  otp, token_paid, balance_paid, payment_mode, transaction_id, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, NOW(), NOW())
-        `, [booking_id, trip.id, user_id, seatCount, token_amount, balance_amount, total_fare, otp, balancePaidFlag, mode, transaction_id || null, bookingStatus]);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, NOW(), NOW())
+        `, [booking_id, trip.id, user_id, seatCount, token_amount, balance_amount, total_fare, platformFee, accessFee, otp, balancePaidFlag, mode, transaction_id || null, bookingStatus]);
 
         const sigiBookingId = insertResult.insertId;
         let savedPassengers = [];
@@ -730,6 +757,9 @@ exports.createBooking = async (req, res) => {
             passengers: savedPassengers,
             fare: {
                 seats        : seatCount,
+                base_fare    : baseFare.toFixed(2),
+                platform_fee : platformFee.toFixed(2),
+                access_fee   : accessFee.toFixed(2),
                 token_paid   : token_amount.toFixed(2),
                 balance_due  : isLateBooking ? "0.00" : balance_amount.toFixed(2),
                 total_fare   : total_fare.toFixed(2)
@@ -1076,19 +1106,24 @@ exports.adminGetAllBookings = async (req, res) => {
             LIMIT ${limitNum} OFFSET ${offset}
         `, values);
 
-        // Self-sharing has no commission concept in the schema — the full fare is the
-        // captain's (or trip creator's) own money, nothing is modeled as a company cut.
-        // Cancellation charges are computed on-the-fly elsewhere (calcCancelCharge) and never
-        // persisted, so they can't be reported here without re-running that calculation.
+        // Company's cut is the captain's sub_service platform_fee + access_fee (flat or
+        // percent, already resolved into a rupee amount at booking time — see
+        // selfSharingController.createBooking). Everything else in total_fare is the
+        // captain's own money. Cancellation charges are computed on-the-fly elsewhere
+        // (calcCancelCharge) and never persisted, so they can't be reported here without
+        // re-running that calculation.
         // "Settled" here means the full balance has been collected, i.e. balance_paid = 1
         // (token_paid alone only covers the deposit, not the full fare).
-        const data = rows.map(b => ({
-            ...b,
-            paid: Number(b.balance_paid) === 1 ? 1 : 0,
-            total_amount: parseFloat(b.total_fare || 0),
-            company_amount: 0,
-            captain_amount: parseFloat(b.total_fare || 0),
-        }));
+        const data = rows.map(b => {
+            const companyAmount = parseFloat(b.platform_fee || 0) + parseFloat(b.access_fee || 0);
+            return {
+                ...b,
+                paid: Number(b.balance_paid) === 1 ? 1 : 0,
+                total_amount: parseFloat(b.total_fare || 0),
+                company_amount: companyAmount,
+                captain_amount: Math.max(0, parseFloat(b.total_fare || 0) - companyAmount),
+            };
+        });
 
         return res.json({
             status: true,
