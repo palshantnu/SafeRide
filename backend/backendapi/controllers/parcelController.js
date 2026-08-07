@@ -107,7 +107,7 @@ exports.createBooking = async (req, res) => {
                  receiver_name, receiver_mobile, approx_weight, weight_type, packaging_material_type, loading_unloading,
                  remarks, amount, actual_amount, platform_fee, access_fee, token_amount, balance_amount,
                  pickup_otp, delivery_otp, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())
         `, [
             parcel_booking_id, user_id, parseInt(service_id), sub_service_id || null, parseInt(plan_id),
             pickup_city, pickup_date, pickup_time,
