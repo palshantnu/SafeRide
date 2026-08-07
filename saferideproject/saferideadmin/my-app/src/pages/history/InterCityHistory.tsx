@@ -63,8 +63,8 @@ const fmtDate = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtFull = (d?: string | null) =>
   d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
-const fmtTime = (d?: string | null) =>
-  d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—';
+const fmtDateTime = (d?: string | null) =>
+  d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 const fmtAmt = (v?: string | number | null) =>
   v != null && parseFloat(String(v)) > 0 ? `₹${parseFloat(String(v)).toFixed(2)}` : '—';
 const normalizeName = (v?: string | null) => (v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -264,7 +264,7 @@ export default function InterCityHistory() {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #f1f5f9' }}>
-                  {['#', 'Booking ID', 'User', 'Driver', 'Route', 'Sub Service', 'Fare', 'Date', 'Ride Time', 'Status', 'Actions'].map(h => (
+                  {['#', 'Booking ID', 'User', 'Driver', 'Route', 'Sub Service', 'Fare', 'Date', 'Ride Start', 'Ride End', 'Status', 'Actions'].map(h => (
                     <th key={h} style={{ padding: '11px 14px', fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap', textAlign: 'left' }}>{h}</th>
                   ))}
                 </tr>
@@ -272,13 +272,13 @@ export default function InterCityHistory() {
               <tbody>
                 {loading && Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    {Array.from({ length: 11 }).map((__, j) => (
+                    {Array.from({ length: 12 }).map((__, j) => (
                       <td key={j} style={{ padding: 14 }}><div style={{ height: 12, borderRadius: 6, background: '#f1f5f9', animation: 'pulse 1.5s ease infinite', width: '65%' }} /></td>
                     ))}
                   </tr>
                 ))}
                 {!loading && paginated.length === 0 && (
-                  <tr><td colSpan={11} style={{ padding: 48, textAlign: 'center' }}>
+                  <tr><td colSpan={12} style={{ padding: 48, textAlign: 'center' }}>
                     <Navigation size={32} color="#e2e8f0" style={{ display: 'block', margin: '0 auto 10px' }} />
                     <div style={{ color: '#94a3b8', fontSize: 13 }}>No Inter City bookings found.</div>
                   </td></tr>
@@ -311,12 +311,14 @@ export default function InterCityHistory() {
                       </div>
                     </td>
                     <td style={{ padding: '11px 14px' }}>
-                      {b.ride_started_at || b.ride_completed_at ? (
-                        <div style={{ fontSize: 10, color: '#64748b', whiteSpace: 'nowrap' }}>
-                          <div>Start: <b style={{ color: '#166534' }}>{fmtTime(b.ride_started_at)}</b></div>
-                          <div style={{ marginTop: 2 }}>End: <b style={{ color: '#991b1b' }}>{fmtTime(b.ride_completed_at)}</b></div>
-                        </div>
-                      ) : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
+                      {b.ride_started_at
+                        ? <span style={{ fontSize: 11, color: '#166534', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtDateTime(b.ride_started_at)}</span>
+                        : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
+                    </td>
+                    <td style={{ padding: '11px 14px' }}>
+                      {b.ride_completed_at
+                        ? <span style={{ fontSize: 11, color: '#991b1b', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtDateTime(b.ride_completed_at)}</span>
+                        : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
                     </td>
                     <td style={{ padding: '11px 14px' }}><StatusBadge status={b.status} /></td>
                     <td style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>

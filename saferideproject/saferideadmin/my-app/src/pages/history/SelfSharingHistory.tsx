@@ -95,8 +95,8 @@ const fmtDate = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtFull = (d?: string | null) =>
   d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
-const fmtTime = (d?: string | null) =>
-  d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—';
+const fmtDateTime = (d?: string | null) =>
+  d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 const fmtAmt = (v?: string | number | null) =>
   v != null && parseFloat(String(v)) > 0 ? `₹${parseFloat(String(v)).toFixed(2)}` : '—';
 
@@ -258,7 +258,7 @@ function TripsTab() {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #f1f5f9' }}>
-                {['#', 'Trip ID', 'Driver', 'Route', 'Seats', 'Fare', 'Schedule', 'Ride Time', 'Status', 'Actions'].map(h => (
+                {['#', 'Trip ID', 'Driver', 'Route', 'Seats', 'Fare', 'Schedule', 'Trip Start', 'Trip End', 'Status', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '11px 14px', fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap', textAlign: 'left' }}>{h}</th>
                 ))}
               </tr>
@@ -266,13 +266,13 @@ function TripsTab() {
             <tbody>
               {loading && Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  {Array.from({ length: 10 }).map((__, j) => (
+                  {Array.from({ length: 11 }).map((__, j) => (
                     <td key={j} style={{ padding: 14 }}><div style={{ height: 12, borderRadius: 6, background: '#f1f5f9', animation: 'pulse 1.5s ease infinite', width: '65%' }} /></td>
                   ))}
                 </tr>
               ))}
               {!loading && paginated.length === 0 && (
-                <tr><td colSpan={10} style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>No trips found.</td></tr>
+                <tr><td colSpan={11} style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>No trips found.</td></tr>
               )}
               {!loading && paginated.map((t, idx) => (
                 <tr key={t.id} onClick={() => setDetail(t)}
@@ -314,12 +314,14 @@ function TripsTab() {
                     </div>
                   </td>
                   <td style={{ padding: '11px 14px' }}>
-                    {t.started_at || t.completed_at ? (
-                      <div style={{ fontSize: 10, color: '#64748b', whiteSpace: 'nowrap' }}>
-                        <div>Start: <b style={{ color: '#166534' }}>{fmtTime(t.started_at)}</b></div>
-                        <div style={{ marginTop: 2 }}>End: <b style={{ color: '#991b1b' }}>{fmtTime(t.completed_at)}</b></div>
-                      </div>
-                    ) : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
+                    {t.started_at
+                      ? <span style={{ fontSize: 11, color: '#166534', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtDateTime(t.started_at)}</span>
+                      : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
+                  </td>
+                  <td style={{ padding: '11px 14px' }}>
+                    {t.completed_at
+                      ? <span style={{ fontSize: 11, color: '#991b1b', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtDateTime(t.completed_at)}</span>
+                      : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
                   </td>
                   <td style={{ padding: '11px 14px' }}><StatusBadge status={t.status} /></td>
                   <td style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>
@@ -421,7 +423,7 @@ function BookingsTab() {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 860 }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #f1f5f9' }}>
-                {['#', 'Booking ID', 'User', 'Driver', 'Route', 'Fare', 'Date', 'Ride Time', 'Status', 'Actions'].map(h => (
+                {['#', 'Booking ID', 'User', 'Driver', 'Route', 'Fare', 'Date', 'Ride Start', 'Ride End', 'Status', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '11px 14px', fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap', textAlign: 'left' }}>{h}</th>
                 ))}
               </tr>
@@ -429,13 +431,13 @@ function BookingsTab() {
             <tbody>
               {loading && Array.from({ length: 6 }).map((_, i) => (
                 <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  {Array.from({ length: 10 }).map((__, j) => (
+                  {Array.from({ length: 11 }).map((__, j) => (
                     <td key={j} style={{ padding: 14 }}><div style={{ height: 12, borderRadius: 6, background: '#f1f5f9', animation: 'pulse 1.5s ease infinite', width: '65%' }} /></td>
                   ))}
                 </tr>
               ))}
               {!loading && paginated.length === 0 && (
-                <tr><td colSpan={10} style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>No bookings found.</td></tr>
+                <tr><td colSpan={11} style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>No bookings found.</td></tr>
               )}
               {!loading && paginated.map((b, idx) => (
                 <tr key={b.id} onClick={() => setDetail(b)}
@@ -460,12 +462,14 @@ function BookingsTab() {
                   <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 700, color: '#059669' }}>{fmtAmt(b.total_fare || b.plan_price)}</td>
                   <td style={{ padding: '11px 14px', fontSize: 12, color: '#64748b' }}>{fmtDate(b.created_at)}</td>
                   <td style={{ padding: '11px 14px' }}>
-                    {b.ride_started_at || b.ride_completed_at ? (
-                      <div style={{ fontSize: 10, color: '#64748b', whiteSpace: 'nowrap' }}>
-                        <div>Start: <b style={{ color: '#166534' }}>{fmtTime(b.ride_started_at)}</b></div>
-                        <div style={{ marginTop: 2 }}>End: <b style={{ color: '#991b1b' }}>{fmtTime(b.ride_completed_at)}</b></div>
-                      </div>
-                    ) : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
+                    {b.ride_started_at
+                      ? <span style={{ fontSize: 11, color: '#166534', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtDateTime(b.ride_started_at)}</span>
+                      : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
+                  </td>
+                  <td style={{ padding: '11px 14px' }}>
+                    {b.ride_completed_at
+                      ? <span style={{ fontSize: 11, color: '#991b1b', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtDateTime(b.ride_completed_at)}</span>
+                      : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
                   </td>
                   <td style={{ padding: '11px 14px' }}><StatusBadge status={b.status} /></td>
                   <td style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>

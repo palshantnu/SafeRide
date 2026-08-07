@@ -91,7 +91,7 @@ const getStatus = (s?: string) =>
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const fmtDate  = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtFull  = (d?: string | null) => d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
-const fmtTime  = (d?: string | null) => d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—';
+const fmtDateTime = (d?: string | null) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 const fmtAmt   = (v?: string | null) => v && parseFloat(v) > 0 ? `₹${parseFloat(v).toFixed(2)}` : v ? `₹${v}` : '—';
 
 // ─── DETAIL MODAL ─────────────────────────────────────────────────────────────
@@ -487,7 +487,8 @@ export default function BookingHistory() {
                     { label: 'Topup',          align: 'right'  },
                     { label: 'Payment',        align: 'center' },
                     { label: 'Date',           align: 'center' },
-                    { label: 'Ride Time',      align: 'center' },
+                    { label: 'Ride Start',     align: 'center' },
+                    { label: 'Ride End',       align: 'center' },
                     { label: 'Status',         align: 'center' },
                     { label: '',               align: 'center' },
                   ] as { label: string; align: React.CSSProperties['textAlign'] }[]).map(({ label, align }, i) => (
@@ -501,7 +502,7 @@ export default function BookingHistory() {
               <tbody>
                 {loading && Array.from({ length: PER_PAGE }).map((_, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    {Array.from({ length: 13 }).map((__, j) => (
+                    {Array.from({ length: 14 }).map((__, j) => (
                       <td key={j} style={{ padding: '14px' }}>
                         <div style={{ height: '13px', borderRadius: '6px', background: '#f1f5f9', animation: 'pulse 1.5s ease infinite', width: j === 0 ? '30%' : '70%' }} />
                       </td>
@@ -511,7 +512,7 @@ export default function BookingHistory() {
 
                 {!loading && paginated.length === 0 && (
                   <tr>
-                    <td colSpan={13} style={{ padding: '56px', textAlign: 'center' }}>
+                    <td colSpan={14} style={{ padding: '56px', textAlign: 'center' }}>
                       <Search size={32} color="#e2e8f0" style={{ display: 'block', margin: '0 auto 10px' }} />
                       <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: 500 }}>
                         {hasFilter ? 'No bookings match your filters.' : 'No bookings found.'}
@@ -640,13 +641,19 @@ export default function BookingHistory() {
                         </div>
                       </td>
 
-                      {/* Ride Time */}
+                      {/* Ride Start */}
                       <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                        {b.ride_started_at || b.ride_completed_at ? (
-                          <div style={{ fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap' }}>
-                            <div>Start: <b style={{ color: '#166534' }}>{fmtTime(b.ride_started_at)}</b></div>
-                            <div style={{ marginTop: '2px' }}>End: <b style={{ color: '#991b1b' }}>{fmtTime(b.ride_completed_at)}</b></div>
-                          </div>
+                        {b.ride_started_at ? (
+                          <span style={{ fontSize: '11px', color: '#166534', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtDateTime(b.ride_started_at)}</span>
+                        ) : (
+                          <span style={{ color: '#cbd5e1', fontSize: '11px' }}>—</span>
+                        )}
+                      </td>
+
+                      {/* Ride End */}
+                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                        {b.ride_completed_at ? (
+                          <span style={{ fontSize: '11px', color: '#991b1b', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtDateTime(b.ride_completed_at)}</span>
                         ) : (
                           <span style={{ color: '#cbd5e1', fontSize: '11px' }}>—</span>
                         )}
