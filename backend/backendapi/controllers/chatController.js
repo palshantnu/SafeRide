@@ -77,6 +77,7 @@ exports.sendMessage = async (req, res) => {
         );
 
         const [[saved]] = await db.execute(`SELECT * FROM chat_messages WHERE id = ?`, [result.insertId]);
+        console.log(`[chat] ${participantType} message saved: conversation=${conversation.id} message_id=${saved.id}`);
         emitNewMessage(conversation.id, saved);
         emitConversationUpdated(conversation.id, { last_message: message.trim(), unread_bump: true });
 
@@ -188,6 +189,7 @@ exports.adminSendMessage = async (req, res) => {
         );
 
         const [[saved]] = await db.execute(`SELECT * FROM chat_messages WHERE id = ?`, [result.insertId]);
+        console.log(`[chat] admin reply saved: conversation=${id} message_id=${saved.id}`);
         emitNewMessage(id, saved);
         emitConversationUpdated(id, { last_message: message.trim() });
 

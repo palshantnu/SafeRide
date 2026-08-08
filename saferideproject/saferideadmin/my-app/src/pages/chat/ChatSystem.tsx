@@ -88,11 +88,18 @@ export default function ChatSystem() {
     });
 
     socket.on('new_message', (msg: Message) => {
-      setMessages(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]));
-      // bump that conversation to the top with the new preview, whether or not it's open
+      // only append to the thread that's actually open right now — the admin
+      // may still be joined to a conversation room they previously had open
+      // (see openConversation, which now leaves the old room on switch, but
+      // this guard is the real fix: it's what stops a stray/late message from
+      // a different conversation leaking into whatever's on screen).
+      if (msg.conversation_id === activeIdRef.current) {
+        setMessages(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]));
+      }
+      // bump that conversation's preview in the list either way, whether or not it's open
       setConversations(prev => prev.map(c => c.id === msg.conversation_id
         ? { ...c, last_message: msg.message, last_message_at: msg.created_at,
-            unread_by_admin: msg.sender_type === 'ADMIN' ? c.unread_by_admin : c.unread_by_admin + 1 }
+            unread_by_admin: (msg.sender_type === 'ADMIN' || msg.conversation_id === activeIdRef.current) ? c.unread_by_admin : c.unread_by_admin + 1 }
         : c));
     });
 
@@ -110,6 +117,9 @@ export default function ChatSystem() {
   }, [messages]);
 
   const openConversation = async (conv: Conversation) => {
+    if (activeIdRef.current && activeIdRef.current !== conv.id) {
+      socketRef.current?.emit('leave_conversation', activeIdRef.current);
+    }
     setActiveId(conv.id);
     activeIdRef.current = conv.id;
     setLoadingThread(true);

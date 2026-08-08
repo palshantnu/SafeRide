@@ -29,7 +29,10 @@ function initSocket(httpServer, allowedOrigins) {
     io.use((socket, next) => {
         try {
             const token = socket.handshake.auth?.token;
-            if (!token) return next(new Error("Authentication required"));
+            if (!token) {
+                console.log("[socket] rejected: no token", socket.handshake.auth);
+                return next(new Error("Authentication required"));
+            }
             const actualToken = token.startsWith("Bearer ") ? token.split(" ")[1] : token;
             const decoded = jwt.verify(actualToken, SECRET);
 
@@ -38,23 +41,34 @@ function initSocket(httpServer, allowedOrigins) {
                 ? "ADMIN"
                 : (decoded.role === "driver" ? "DRIVER" : "USER");
             socket.userId = decoded.id;
+            console.log(`[socket] authenticated: type=${socket.participantType} userId=${socket.userId} id=${socket.id}`);
             next();
         } catch (err) {
+            console.log("[socket] rejected: invalid token —", err.message);
             next(new Error("Invalid token"));
         }
     });
 
     io.on("connection", (socket) => {
+        console.log(`[socket] connected: type=${socket.participantType} userId=${socket.userId} id=${socket.id}`);
+
         if (socket.participantType === "ADMIN") {
             socket.join(ADMIN_ROOM);
+            console.log(`[socket] ${socket.id} joined ${ADMIN_ROOM}`);
         }
 
         socket.on("join_conversation", (conversationId) => {
-            if (conversationId) socket.join(conversationRoom(conversationId));
+            if (!conversationId) return;
+            socket.join(conversationRoom(conversationId));
+            console.log(`[socket] ${socket.id} (${socket.participantType}) joined ${conversationRoom(conversationId)}`);
         });
 
         socket.on("leave_conversation", (conversationId) => {
             if (conversationId) socket.leave(conversationRoom(conversationId));
+        });
+
+        socket.on("disconnect", (reason) => {
+            console.log(`[socket] disconnected: id=${socket.id} reason=${reason}`);
         });
     });
 
@@ -70,8 +84,12 @@ function getIO() {
 // admin room generally (so the conversation list can bump/reorder without every
 // admin needing to already have that specific thread open).
 function emitNewMessage(conversationId, message) {
-    if (!io) return;
-    io.to(conversationRoom(conversationId)).emit("new_message", message);
+    if (!io) { console.log("[socket] emitNewMessage called but io is not initialized"); return; }
+    const room = conversationRoom(conversationId);
+    const roomSize = io.sockets.adapter.rooms.get(room)?.size || 0;
+    const adminRoomSize = io.sockets.adapter.rooms.get(ADMIN_ROOM)?.size || 0;
+    console.log(`[socket] emitNewMessage → room=${room} (${roomSize} sockets), ${ADMIN_ROOM} (${adminRoomSize} sockets)`);
+    io.to(room).emit("new_message", message);
     io.to(ADMIN_ROOM).emit("conversation_updated", { conversation_id: conversationId, last_message: message });
 }
 
