@@ -615,8 +615,19 @@ exports.getAvailableTrips = async (req, res) => {
             LEFT JOIN services s             ON s.id  = t.service_id
             LEFT JOIN drivers d              ON t.creator_type = 'DRIVER' AND d.id = t.creator_id
             LEFT JOIN business_associates ba ON t.creator_type = 'BA'     AND ba.id = t.creator_id
-            LEFT JOIN drivers operating_driver ON operating_driver.id = CASE t.creator_type WHEN 'DRIVER' THEN t.creator_id ELSE t.assigned_driver_id END
-            LEFT JOIN sub_services ss        ON ss.id = operating_driver.sub_service_id
+            -- this service's one designated fee sub_service (not tied to any driver —
+            -- see selfSharingController.createBooking for the matching lookup rule)
+            LEFT JOIN (
+                SELECT ss1.service_id, ss1.access_fee, ss1.access_fee_type, ss1.platform_fee
+                FROM sub_services ss1
+                INNER JOIN (
+                    SELECT service_id, MAX(updated_at) AS latest_updated_at
+                    FROM sub_services
+                    WHERE status = 1 AND deleted_at IS NULL
+                      AND (access_fee IS NOT NULL OR platform_fee IS NOT NULL)
+                    GROUP BY service_id
+                ) latest ON latest.service_id = ss1.service_id AND latest.latest_updated_at = ss1.updated_at
+            ) ss ON ss.service_id = t.service_id
             ${where}
             ORDER BY t.departure_time ASC
             LIMIT ${limitNum} OFFSET ${offset}
@@ -680,7 +691,7 @@ exports.createBooking = async (req, res) => {
 
         const mode = "ONLINE";
         const [[trip]] = await db.execute(
-            `SELECT id, available_seats, token_fare, full_fare, status,
+            `SELECT id, service_id, available_seats, token_fare, full_fare, status,
                     creator_type, creator_id, assigned_driver_id
              FROM sigi_trips WHERE trip_id = ?`,
             [trip_id]
@@ -702,28 +713,27 @@ exports.createBooking = async (req, res) => {
         const token_amount = parseFloat(trip.token_fare) * seatCount;
         const baseFare     = parseFloat(trip.full_fare) * seatCount;
 
-        // Platform fee / access fee come from the operating captain's own sub_service
-        // (same sub_services table + flat/percent convention used everywhere else),
-        // added on top of what the passenger pays. No captain assigned yet (BA trip,
-        // not yet assigned) → no fee applied until one is.
-        const driverId = trip.creator_type === 'DRIVER' ? trip.creator_id : trip.assigned_driver_id;
+        // Platform fee / access fee come from this service's one designated fee
+        // sub_service (same sub_services table + flat/percent convention used
+        // everywhere else) — not tied to any particular driver, since drivers here
+        // don't necessarily have a sub_service_id of their own. A service can have
+        // several sub_services (vehicle types, etc.); whichever one actually has a
+        // fee configured is "the" fee config for that service.
         let platformFee = 0;
         let accessFee    = 0;
-        if (driverId) {
-            const [[driver]] = await db.execute(`SELECT sub_service_id FROM drivers WHERE id = ?`, [driverId]);
-            if (driver?.sub_service_id) {
-                const [[ss]] = await db.execute(
-                    `SELECT access_fee, access_fee_type, platform_fee FROM sub_services WHERE id = ?`,
-                    [driver.sub_service_id]
-                );
-                if (ss) {
-                    platformFee = parseFloat(ss.platform_fee || 0);
-                    const accessFeeCfg = parseFloat(ss.access_fee || 0);
-                    accessFee = (ss.access_fee_type === 'percent')
-                        ? Math.round(baseFare * accessFeeCfg) / 100
-                        : accessFeeCfg;
-                }
-            }
+        const [[ss]] = await db.execute(
+            `SELECT access_fee, access_fee_type, platform_fee FROM sub_services
+             WHERE service_id = ? AND status = 1 AND deleted_at IS NULL
+               AND (access_fee IS NOT NULL OR platform_fee IS NOT NULL)
+             ORDER BY updated_at DESC LIMIT 1`,
+            [trip.service_id]
+        );
+        if (ss) {
+            platformFee = parseFloat(ss.platform_fee || 0);
+            const accessFeeCfg = parseFloat(ss.access_fee || 0);
+            accessFee = (ss.access_fee_type === 'percent')
+                ? Math.round(baseFare * accessFeeCfg) / 100
+                : accessFeeCfg;
         }
 
         const total_fare     = baseFare + platformFee + accessFee;
