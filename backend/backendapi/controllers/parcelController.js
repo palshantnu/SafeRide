@@ -1026,8 +1026,9 @@ exports.adminGetAllBookings = async (req, res) => {
             LIMIT ${limitNum} OFFSET ${offset}
         `, values);
 
-        // Company/captain split comes straight off the plan (parcel has no cancellation-fee
-        // concept in the schema today — cancelled bookings just flip status, nothing is charged).
+        // Company/captain split comes straight off the plan. `cancelled_by`/`cancellation_fee`
+        // come straight off pb.* — persisted at cancel time by cancelBooking/driverCancel using
+        // the booking's sub_service cancellation policy (same convention as Ride).
         // Company's cut also includes the plan's platform_fee/access_fee (flat or percent,
         // already resolved into a rupee amount at booking time — see parcelController.createBooking).
         // `paid` on this table only ever means "token paid" (see payToken's "Token already paid"

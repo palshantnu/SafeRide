@@ -100,10 +100,11 @@ const mapGeneric = (raw: RawRow, module: Module, fallbackLabel: string): MoneyBo
   sub_service_name: (raw.sub_service_name as string | null) ?? null,
   payment_mode: (raw.payment_mode as string | null) ?? null,
   paid: Number(raw.paid ?? raw.token_paid ?? 0),
-  status: String(raw.status ?? ''),
-  // Parcel stores 'user'/'driver' lowercase (its own status-casing convention); normalize to
-  // uppercase here so the table's cancelledTo label (b.cancelled_by === 'DRIVER'/'USER') works
+  // Parcel stores status ('cancelled', 'delivered', ...) and cancelled_by ('user'/'driver')
+  // lowercase — its own convention, unlike Ride/Self-Sharing/On-Spot which use uppercase.
+  // Normalize both here so every `b.status === 'CANCELLED'` / cancelledTo check below works
   // the same across every module.
+  status: String(raw.status ?? '').toUpperCase(),
   cancelled_by: raw.cancelled_by != null ? String(raw.cancelled_by).toUpperCase() : null,
   cancellation_fee: raw.cancellation_fee != null ? Number(raw.cancellation_fee) : null,
   total_amount: Number(raw.total_amount ?? 0),
