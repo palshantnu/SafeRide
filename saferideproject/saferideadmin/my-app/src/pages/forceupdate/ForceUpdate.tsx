@@ -183,7 +183,9 @@ export default function ForceUpdate() {
     }
   };
 
-  const grouped = { user: versions.filter(v => v.app === 'user'), driver: versions.filter(v => v.app === 'driver') };
+  // iOS builds aren't published yet — hide those rows in admin until they are.
+  const androidOnly = versions.filter(v => v.platform === 'android');
+  const grouped = { user: androidOnly.filter(v => v.app === 'user'), driver: androidOnly.filter(v => v.app === 'driver') };
 
   return (
     <>
@@ -203,7 +205,7 @@ export default function ForceUpdate() {
 
         {loading ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 }}>
-            {Array.from({ length: 4 }).map((_, i) => (
+            {Array.from({ length: 2 }).map((_, i) => (
               <div key={i} style={{ height: 260, borderRadius: 16, background: '#f1f5f9', animation: 'pulse 1.5s ease infinite' }} />
             ))}
           </div>
