@@ -107,6 +107,8 @@ const mapGeneric = (raw: RawRow, module: Module, fallbackLabel: string): MoneyBo
   status: String(raw.status ?? '').toUpperCase(),
   cancelled_by: raw.cancelled_by != null ? String(raw.cancelled_by).toUpperCase() : null,
   cancellation_fee: raw.cancellation_fee != null ? Number(raw.cancellation_fee) : null,
+  token_amount: raw.token_amount != null ? Number(raw.token_amount) : null,
+  balance_amount: raw.balance_amount != null ? Number(raw.balance_amount) : null,
   total_amount: Number(raw.total_amount ?? 0),
   company_amount: Number(raw.company_amount ?? 0),
   captain_amount: Number(raw.captain_amount ?? 0),
