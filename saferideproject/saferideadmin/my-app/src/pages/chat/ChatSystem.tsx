@@ -49,6 +49,7 @@ export default function ChatSystem() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const socketRef = useRef<Socket | null>(null);
+  const activeIdRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const active = useMemo(() => conversations.find(c => c.id === activeId) || null, [conversations, activeId]);
@@ -76,6 +77,16 @@ export default function ChatSystem() {
     });
     socketRef.current = socket;
 
+    // Rooms don't survive a reconnect (tab backgrounded, brief network drop,
+    // etc.) — 'connect' fires on the first connection AND every reconnection,
+    // so re-joining here (not only when the admin first opens a thread) is
+    // what keeps live messages flowing without a manual page reload.
+    socket.on('connect', () => {
+      if (activeIdRef.current) {
+        socket.emit('join_conversation', activeIdRef.current);
+      }
+    });
+
     socket.on('new_message', (msg: Message) => {
       setMessages(prev => (prev.some(m => m.id === msg.id) ? prev : [...prev, msg]));
       // bump that conversation to the top with the new preview, whether or not it's open
@@ -100,6 +111,7 @@ export default function ChatSystem() {
 
   const openConversation = async (conv: Conversation) => {
     setActiveId(conv.id);
+    activeIdRef.current = conv.id;
     setLoadingThread(true);
     socketRef.current?.emit('join_conversation', conv.id);
     try {
