@@ -461,12 +461,11 @@ exports.cancelTrip = async (req, res) => {
             `UPDATE sigi_trips SET status = 'CANCELLED', updated_at = NOW() WHERE id = ?`,
             [trip.id]
         );
-        await db.execute(`
-            UPDATE sigi_bookings SET status = 'CANCELLED', updated_at = NOW()
-            WHERE trip_id = ? AND status NOT IN ('COMPLETED','CANCELLED')
-        `, [trip.id]);
 
-        // refund full token to every affected user (driver's fault)
+        // refund full token to every affected user (driver's fault), and attribute each
+        // booking its proportional share of the driver's penalty (by fare weight) so the
+        // per-row shares sum back to `penalty` — lets the admin Accounts page show
+        // "cancelled by DRIVER" + a charge amount against each affected booking.
         let totalRefunded = 0;
         for (const b of activeBookings) {
             const token = parseFloat(b.token_amount) || 0;
@@ -474,6 +473,13 @@ exports.cancelTrip = async (req, res) => {
                 await db.execute(`UPDATE users SET wallet = wallet + ? WHERE id = ?`, [token, b.user_id]);
                 totalRefunded += token;
             }
+            const bookingFare  = parseFloat(b.total_fare) || 0;
+            const bookingShare = tripValue > 0 ? Math.round((penalty * bookingFare / tripValue) * 100) / 100 : 0;
+            await db.execute(`
+                UPDATE sigi_bookings
+                SET status = 'CANCELLED', cancelled_by = 'DRIVER', cancel_reason = ?, cancellation_fee = ?, updated_at = NOW()
+                WHERE id = ?
+            `, ['Trip cancelled by driver', bookingShare, b.id]);
         }
 
         // deduct penalty from driver's wallet (BA has no wallet column → skipped)
@@ -982,8 +988,10 @@ exports.cancelBooking = async (req, res) => {
             [booking.seats, booking.trip_id]
         );
         await db.execute(
-            `UPDATE sigi_bookings SET status = 'CANCELLED', cancel_reason = ?, updated_at = NOW() WHERE id = ?`,
-            [cancel_reason, booking.id]
+            `UPDATE sigi_bookings
+             SET status = 'CANCELLED', cancelled_by = 'USER', cancel_reason = ?, cancellation_fee = ?, updated_at = NOW()
+             WHERE id = ?`,
+            [cancel_reason, charge, booking.id]
         );
 
         return res.json({
@@ -1142,9 +1150,9 @@ exports.adminGetAllBookings = async (req, res) => {
         // Company's cut is the captain's sub_service platform_fee + access_fee (flat or
         // percent, already resolved into a rupee amount at booking time — see
         // selfSharingController.createBooking). Everything else in total_fare is the
-        // captain's own money. Cancellation charges are computed on-the-fly elsewhere
-        // (calcCancelCharge) and never persisted, so they can't be reported here without
-        // re-running that calculation.
+        // captain's own money. `cancelled_by`/`cancellation_fee` come straight off sb.* —
+        // persisted at cancel time by cancelBooking (USER) / cancelTrip (DRIVER, split
+        // proportionally across that trip's active bookings).
         // "Settled" here means the full balance has been collected, i.e. balance_paid = 1
         // (token_paid alone only covers the deposit, not the full fare).
         const data = rows.map(b => {

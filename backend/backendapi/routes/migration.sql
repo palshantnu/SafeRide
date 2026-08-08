@@ -166,3 +166,26 @@ INSERT IGNORE INTO `app_versions` (`app`, `platform`, `latest_version`, `min_ver
   ('user',   'ios',     '1.10.5', '1.10.5', 0, NULL),
   ('driver', 'android', '1.29',   '1.29',   0, 'https://play.google.com/store/apps/details?id=com.sigiridecaptain'),
   ('driver', 'ios',     '1.29',   '1.29',   0, NULL);
+
+-- 17. Self-Sharing bookings already compute a cancellation charge on cancel
+--     (calcCancelCharge in selfSharingController.js — both a passenger cancelling their own
+--     seat and a driver cancelling the whole trip), but never persisted who cancelled or how
+--     much, so the admin Accounts page couldn't show it for this module (see `bookings.cancelled_by`
+--     / `bookings.cancellation_fee`, which already work for rides — this mirrors that here).
+ALTER TABLE sigi_bookings
+  ADD COLUMN IF NOT EXISTS cancelled_by     ENUM('NONE','USER','DRIVER') NOT NULL DEFAULT 'NONE',
+  ADD COLUMN IF NOT EXISTS cancellation_fee DECIMAL(10,2) DEFAULT '0.00';
+
+-- 18. Parcel and On-Spot bookings already have `cancelled_by`/`cancel_reason` but no charge —
+--     cancelling just flipped status, nothing was charged (see old comments in
+--     parcelController.js / onspotController.js). Both now compute a cancellation fee the same
+--     way Ride does, off the booking's sub_service cancellation policy
+--     (sub_services.user_cancel_*/driver_cancel_*, resolved via pb.sub_service_id /
+--     ob.sub_service_id, falling back to the chosen plan's sub_service_id for parcel where the
+--     booking-level column can be left blank) — only charged once a captain/service man has
+--     accepted. Just needs the missing amount column; `cancelled_by`/`cancel_reason` already exist.
+ALTER TABLE parcel_bookings
+  ADD COLUMN IF NOT EXISTS cancellation_fee DECIMAL(10,2) DEFAULT '0.00';
+
+ALTER TABLE onspot_bookings
+  ADD COLUMN IF NOT EXISTS cancellation_fee DECIMAL(10,2) DEFAULT '0.00';

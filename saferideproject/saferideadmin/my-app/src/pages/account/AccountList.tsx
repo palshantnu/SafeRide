@@ -58,10 +58,6 @@ const getStatusStyle = (s?: string) => STATUS_CONFIG[(s || '').toUpperCase()] ||
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtAmt  = (v?: number | string | null) => `₹${Number(v ?? 0).toFixed(2)}`;
 
-// Modules whose backend schema has no persisted cancellation-fee column (see backend comments
-// in selfSharingController.js / parcelController.js / onspotController.js).
-const CANCELLATION_UNTRACKED: Module[] = ['SELF_SHARING', 'PARCEL', 'ONSPOT'];
-
 // ── Per-source mappers: each backend already returns total_amount/company_amount/captain_amount
 // (added alongside this module), so mapping is mostly a field-name pass-through. ──
 const mapRide = (raw: RawRow): MoneyBooking => ({
@@ -105,8 +101,11 @@ const mapGeneric = (raw: RawRow, module: Module, fallbackLabel: string): MoneyBo
   payment_mode: (raw.payment_mode as string | null) ?? null,
   paid: Number(raw.paid ?? raw.token_paid ?? 0),
   status: String(raw.status ?? ''),
-  cancelled_by: (raw.cancelled_by as string | null) ?? null,
-  cancellation_fee: null, // not tracked in this module's schema — see backend comments
+  // Parcel stores 'user'/'driver' lowercase (its own status-casing convention); normalize to
+  // uppercase here so the table's cancelledTo label (b.cancelled_by === 'DRIVER'/'USER') works
+  // the same across every module.
+  cancelled_by: raw.cancelled_by != null ? String(raw.cancelled_by).toUpperCase() : null,
+  cancellation_fee: raw.cancellation_fee != null ? Number(raw.cancellation_fee) : null,
   total_amount: Number(raw.total_amount ?? 0),
   company_amount: Number(raw.company_amount ?? 0),
   captain_amount: Number(raw.captain_amount ?? 0),
@@ -254,7 +253,6 @@ export default function AccountList() {
 
   const resetFilters = () => { setSearch(''); setPaymentFilter(''); setStatusFilter(''); setFromDate(''); setToDate(''); setPage(1); };
   const hasFilter = search || paymentFilter || statusFilter || fromDate || toDate;
-  const showCancellationCard = !CANCELLATION_UNTRACKED.includes(activeTab as Module);
 
   return (
     <>
@@ -302,15 +300,8 @@ export default function AccountList() {
           <StatCard label="Net Collected"        value={fmtAmt(summary.net)}             bg="#eef2ff" color="#6366f1" icon={<IndianRupee size={18} color="#6366f1" />} />
           <StatCard label="Company Share"        value={fmtAmt(summary.company)}         bg="#d1fae5" color="#059669" icon={<CheckCircle2 size={18} color="#059669" />} />
           <StatCard label="Captain Share"        value={fmtAmt(summary.captain)}         bg="#e0f2fe" color="#0369a1" icon={<Wallet size={18} color="#0369a1" />} />
-          {showCancellationCard && (
-            <StatCard label={`Cancellation Charges (${summary.cancelledCount})`} value={fmtAmt(summary.cancellationFee)} bg="#fee2e2" color="#dc2626" icon={<XCircle size={18} color="#dc2626" />} />
-          )}
+          <StatCard label={`Cancellation Charges (${summary.cancelledCount})`} value={fmtAmt(summary.cancellationFee)} bg="#fee2e2" color="#dc2626" icon={<XCircle size={18} color="#dc2626" />} />
         </div>
-        {!showCancellationCard && (
-          <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '-12px', marginBottom: '16px' }}>
-            Note: this module doesn't persist a cancellation fee in the backend yet, so cancellation charges aren't shown here.
-          </p>
-        )}
 
         {/* ── Filters ── */}
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px', alignItems: 'center' }}>

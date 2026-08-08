@@ -13,13 +13,40 @@ const actorType = (req) => {
     return "USER";
 };
 
+// ─── CANCELLATION FEE ───────────────────────────────────────────────────────────
+// Same time-window policy Ride uses (sub_services.user_cancel_*/driver_cancel_*), applied
+// here too so cancelling an On-Spot booking after a captain has accepted can carry a charge —
+// see UserapiController.cancelBooking for the reference implementation this mirrors.
+const hoursUntil = (scheduleAt) => scheduleAt ? (new Date(scheduleAt) - new Date()) / 36e5 : 0;
+
+const computeOnspotCancelFee = async (subServiceId, prefix, hoursLeft, baseAmount) => {
+    if (!subServiceId) return 0;
+    const [[ss]] = await db.execute(`
+        SELECT ${prefix}_cancel_before48_type, ${prefix}_cancel_before48_amount,
+               ${prefix}_cancel_24to48_type,   ${prefix}_cancel_24to48_amount,
+               ${prefix}_cancel_0to24_type,    ${prefix}_cancel_0to24_amount
+        FROM sub_services WHERE id = ?
+    `, [subServiceId]);
+    if (!ss) return 0;
+    let feeType, feeAmount;
+    if (hoursLeft >= 48) {
+        feeType = ss[`${prefix}_cancel_before48_type`]; feeAmount = parseFloat(ss[`${prefix}_cancel_before48_amount`] || 0);
+    } else if (hoursLeft >= 24) {
+        feeType = ss[`${prefix}_cancel_24to48_type`]; feeAmount = parseFloat(ss[`${prefix}_cancel_24to48_amount`] || 0);
+    } else {
+        feeType = ss[`${prefix}_cancel_0to24_type`]; feeAmount = parseFloat(ss[`${prefix}_cancel_0to24_amount`] || 0);
+    }
+    const fee = feeType === 'percent' ? (parseFloat(baseAmount || 0) * feeAmount) / 100 : feeAmount;
+    return Math.round(fee * 100) / 100;
+};
+
 const ONSPOT_FIELDS = `
     ob.id, ob.booking_no, ob.user_id, ob.service_id, ob.sub_service_id, ob.plan_id,
     ob.city, ob.schedule_datetime, ob.full_address, ob.landmark, ob.remarks,
     ob.driver_id, ob.token_amount, ob.balance_amount, ob.total_amount,
     ob.platform_fee, ob.access_fee,
     ob.token_paid, ob.balance_paid, ob.payment_mode, ob.otp_verified,
-    ob.status, ob.cancelled_by, ob.cancel_reason, ob.user_rated,
+    ob.status, ob.cancelled_by, ob.cancel_reason, ob.cancellation_fee, ob.user_rated,
     ob.started_at, ob.completed_at, ob.created_at, ob.updated_at
 `;
 
@@ -248,7 +275,7 @@ exports.cancelBooking = async (req, res) => {
         if (!booking_no) return res.status(400).json({ status: false, message: "booking_no is required" });
 
         const [[booking]] = await db.execute(
-            `SELECT id, status FROM onspot_bookings WHERE booking_no = ? AND user_id = ?`,
+            `SELECT id, status, driver_id, sub_service_id, schedule_datetime, total_amount FROM onspot_bookings WHERE booking_no = ? AND user_id = ?`,
             [booking_no, user_id]
         );
         if (!booking) return res.status(404).json({ status: false, message: "Booking not found" });
@@ -256,13 +283,24 @@ exports.cancelBooking = async (req, res) => {
             return res.status(400).json({ status: false, message: `Cannot cancel. Status: ${booking.status}` });
         }
 
+        // charge only applies once a service man has accepted (driver_id set) — free to cancel before that
+        let cancellationFee = 0;
+        if (booking.driver_id) {
+            cancellationFee = await computeOnspotCancelFee(
+                booking.sub_service_id, 'user', hoursUntil(booking.schedule_datetime), booking.total_amount
+            );
+            if (cancellationFee > 0) {
+                await db.execute(`UPDATE users SET wallet = wallet - ? WHERE id = ?`, [cancellationFee, user_id]);
+            }
+        }
+
         await db.execute(`
             UPDATE onspot_bookings
-            SET status = 'CANCELLED', cancelled_by = 'USER', cancel_reason = ?, updated_at = NOW()
+            SET status = 'CANCELLED', cancelled_by = 'USER', cancel_reason = ?, cancellation_fee = ?, updated_at = NOW()
             WHERE id = ?
-        `, [cancel_reason || null, booking.id]);
+        `, [cancel_reason || null, cancellationFee, booking.id]);
 
-        return res.json({ status: true, message: "Booking cancelled" });
+        return res.json({ status: true, message: "Booking cancelled", cancellation_fee: cancellationFee });
     } catch (error) {
         console.error("onspot cancelBooking error:", error);
         return res.status(500).json({ status: false, message: error.message });
@@ -561,13 +599,20 @@ exports.driverCancel = async (req, res) => {
             return res.status(400).json({ status: false, message: `Cannot cancel. Status: ${booking.status}` });
         }
 
+        const cancellationFee = await computeOnspotCancelFee(
+            booking.sub_service_id, 'driver', hoursUntil(booking.schedule_datetime), booking.total_amount
+        );
+        if (cancellationFee > 0) {
+            await db.execute(`UPDATE drivers SET wallet = wallet - ? WHERE id = ?`, [cancellationFee, driver_id]);
+        }
+
         await db.execute(`
             UPDATE onspot_bookings
-            SET status = 'CANCELLED', cancelled_by = 'DRIVER', cancel_reason = ?, updated_at = NOW()
+            SET status = 'CANCELLED', cancelled_by = 'DRIVER', cancel_reason = ?, cancellation_fee = ?, updated_at = NOW()
             WHERE id = ?
-        `, [cancel_reason || null, booking.id]);
+        `, [cancel_reason || null, cancellationFee, booking.id]);
 
-        return res.json({ status: true, message: "Booking cancelled by service man" });
+        return res.json({ status: true, message: "Booking cancelled by service man", cancellation_fee: cancellationFee });
     } catch (error) {
         console.error("onspot driverCancel error:", error);
         return res.status(500).json({ status: false, message: error.message });
@@ -766,7 +811,9 @@ exports.adminGetAllBookings = async (req, res) => {
             LIMIT ${limitNum} OFFSET ${offset}
         `, values);
 
-        // Same plan-driven split as parcel; on-spot also has no persisted cancellation-fee column.
+        // Same plan-driven split as parcel. `cancelled_by`/`cancellation_fee` come straight off
+        // ob.* — persisted at cancel time by cancelBooking/driverCancel using the booking's
+        // sub_service cancellation policy (same convention as Ride).
         // Company's cut also includes the plan's platform_fee/access_fee (flat or percent,
         // already resolved into a rupee amount at booking time — see onspotController.createBooking).
         // There's no generic `paid` column here at all — only `token_paid`/`balance_paid` — so

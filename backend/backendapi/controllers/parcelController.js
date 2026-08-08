@@ -13,6 +13,33 @@ const actorType = (req) => {
     return "USER";
 };
 
+// ─── CANCELLATION FEE ───────────────────────────────────────────────────────────
+// Same time-window policy Ride uses (sub_services.user_cancel_*/driver_cancel_*), applied
+// here too so cancelling a parcel after a captain has accepted can carry a charge — see
+// UserapiController.cancelBooking for the reference implementation this mirrors.
+const hoursUntil = (scheduleAt) => scheduleAt ? (new Date(scheduleAt) - new Date()) / 36e5 : 0;
+
+const computeParcelCancelFee = async (subServiceId, prefix, hoursLeft, baseAmount) => {
+    if (!subServiceId) return 0;
+    const [[ss]] = await db.execute(`
+        SELECT ${prefix}_cancel_before48_type, ${prefix}_cancel_before48_amount,
+               ${prefix}_cancel_24to48_type,   ${prefix}_cancel_24to48_amount,
+               ${prefix}_cancel_0to24_type,    ${prefix}_cancel_0to24_amount
+        FROM sub_services WHERE id = ?
+    `, [subServiceId]);
+    if (!ss) return 0;
+    let feeType, feeAmount;
+    if (hoursLeft >= 48) {
+        feeType = ss[`${prefix}_cancel_before48_type`]; feeAmount = parseFloat(ss[`${prefix}_cancel_before48_amount`] || 0);
+    } else if (hoursLeft >= 24) {
+        feeType = ss[`${prefix}_cancel_24to48_type`]; feeAmount = parseFloat(ss[`${prefix}_cancel_24to48_amount`] || 0);
+    } else {
+        feeType = ss[`${prefix}_cancel_0to24_type`]; feeAmount = parseFloat(ss[`${prefix}_cancel_0to24_amount`] || 0);
+    }
+    const fee = feeType === 'percent' ? (parseFloat(baseAmount || 0) * feeAmount) / 100 : feeAmount;
+    return Math.round(fee * 100) / 100;
+};
+
 const PARCEL_PACKAGING = ["Plastic", "Paper", "Carton", "Glass", "Iron"];
 const PARCEL_LOADING    = ["User End", "Captain End"];
 
@@ -27,7 +54,7 @@ const PARCEL_FIELDS = `
     pb.payment_mode, pb.paid, pb.paid_at, pb.balance_paid,
     pb.pickup_image, pb.delivery_image,
     pb.pickup_otp_verified, pb.pickup_otp_verified_at, pb.delivery_otp_verified,
-    pb.status, pb.user_status, pb.driver_status, pb.cancelled_by, pb.cancel_reason, pb.user_rated,
+    pb.status, pb.user_status, pb.driver_status, pb.cancelled_by, pb.cancel_reason, pb.cancellation_fee, pb.user_rated,
     pb.completed_at, pb.delivered_at, pb.created_at, pb.updated_at
 `;
 
@@ -331,22 +358,38 @@ exports.cancelBooking = async (req, res) => {
         const { parcel_booking_id, cancel_reason } = req.body;
         if (!parcel_booking_id) return res.status(400).json({ status: false, message: "parcel_booking_id is required" });
 
-        const [[booking]] = await db.execute(
-            `SELECT id, status FROM parcel_bookings WHERE parcel_booking_id = ? AND user_id = ? AND deleted_at IS NULL`,
-            [parcel_booking_id, user_id]
-        );
+        const [[booking]] = await db.execute(`
+            SELECT pb.id, pb.status, pb.driver_id, pb.sub_service_id, pb.amount,
+                   TIMESTAMP(pb.pickup_date, pb.pickup_time) AS schedule_at,
+                   p.sub_service_id AS plan_sub_service_id
+            FROM parcel_bookings pb
+            LEFT JOIN plans p ON p.id = pb.plan_id
+            WHERE pb.parcel_booking_id = ? AND pb.user_id = ? AND pb.deleted_at IS NULL
+        `, [parcel_booking_id, user_id]);
         if (!booking) return res.status(404).json({ status: false, message: "Parcel booking not found" });
         if (["picked_up", "in_transit", "out_for_delivery", "delivered", "cancelled"].includes(booking.status)) {
             return res.status(400).json({ status: false, message: `Cannot cancel. Status: ${booking.status}` });
         }
 
+        // charge only applies once a captain has accepted (driver_id set) — free to cancel before that
+        let cancellationFee = 0;
+        if (booking.driver_id) {
+            const subServiceId = booking.sub_service_id || booking.plan_sub_service_id;
+            cancellationFee = await computeParcelCancelFee(
+                subServiceId, 'user', hoursUntil(booking.schedule_at), booking.amount
+            );
+            if (cancellationFee > 0) {
+                await db.execute(`UPDATE users SET wallet = wallet - ? WHERE id = ?`, [cancellationFee, user_id]);
+            }
+        }
+
         await db.execute(`
             UPDATE parcel_bookings
-            SET status = 'cancelled', cancelled_by = 'user', cancel_reason = ?, updated_at = NOW()
+            SET status = 'cancelled', cancelled_by = 'user', cancel_reason = ?, cancellation_fee = ?, updated_at = NOW()
             WHERE id = ?
-        `, [cancel_reason || null, booking.id]);
+        `, [cancel_reason || null, cancellationFee, booking.id]);
 
-        return res.json({ status: true, message: "Parcel booking cancelled" });
+        return res.json({ status: true, message: "Parcel booking cancelled", cancellation_fee: cancellationFee });
     } catch (error) {
         console.error("parcel cancelBooking error:", error);
         return res.status(500).json({ status: false, message: error.message });
@@ -662,13 +705,29 @@ exports.driverCancel = async (req, res) => {
             return res.status(400).json({ status: false, message: `Cannot cancel. Status: ${booking.status}` });
         }
 
+        let subServiceId = booking.sub_service_id;
+        if (!subServiceId && booking.plan_id) {
+            const [[plan]] = await db.execute(`SELECT sub_service_id FROM plans WHERE id = ?`, [booking.plan_id]);
+            subServiceId = plan?.sub_service_id || null;
+        }
+        const [[{ schedule_at }]] = await db.execute(
+            `SELECT TIMESTAMP(pickup_date, pickup_time) AS schedule_at FROM parcel_bookings WHERE id = ?`,
+            [booking.id]
+        );
+        const cancellationFee = await computeParcelCancelFee(
+            subServiceId, 'driver', hoursUntil(schedule_at), booking.amount
+        );
+        if (cancellationFee > 0) {
+            await db.execute(`UPDATE drivers SET wallet = wallet - ? WHERE id = ?`, [cancellationFee, driver_id]);
+        }
+
         await db.execute(`
             UPDATE parcel_bookings
-            SET status = 'cancelled', cancelled_by = 'driver', cancel_reason = ?, updated_at = NOW()
+            SET status = 'cancelled', cancelled_by = 'driver', cancel_reason = ?, cancellation_fee = ?, updated_at = NOW()
             WHERE id = ?
-        `, [cancel_reason || null, booking.id]);
+        `, [cancel_reason || null, cancellationFee, booking.id]);
 
-        return res.json({ status: true, message: "Parcel cancelled by captain" });
+        return res.json({ status: true, message: "Parcel cancelled by captain", cancellation_fee: cancellationFee });
     } catch (error) {
         console.error("parcel driverCancel error:", error);
         return res.status(500).json({ status: false, message: error.message });
