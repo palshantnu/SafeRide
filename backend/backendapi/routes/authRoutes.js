@@ -36,6 +36,7 @@ const uploadParcel = require('../middleware/uploadParcel');
 const onspotController = require('../controllers/onspotController');
 const locationController = require('../controllers/locationController');
 const chatController = require('../controllers/chatController');
+const appVersionController = require('../controllers/appVersionController');
 
 //---------------------------------------------------Admin-panel---------------------------------------------------------------//
 
@@ -424,6 +425,11 @@ router.get('/admin/support/conversations/:id/messages', verifyToken, chatControl
 router.post('/admin/support/conversations/:id/send',    verifyToken, chatController.adminSendMessage);
 router.patch('/admin/support/conversations/:id/close',  verifyToken, chatController.adminCloseConversation);
 router.patch('/admin/support/conversations/:id/reopen', verifyToken, chatController.adminReopenConversation);
+
+//-------------------------------------------------Force Update--------------------------------------------------------------//
+router.get('/app-version', appVersionController.getAppVersion); // public — called on app launch
+router.get('/admin/app-versions', verifyToken, appVersionController.adminGetAppVersions);
+router.put('/admin/app-versions/:id', verifyToken, appVersionController.adminUpdateAppVersion);
 
 
 module.exports = router;

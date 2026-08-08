@@ -141,3 +141,28 @@ CREATE TABLE IF NOT EXISTS `chat_messages` (
   KEY `conversation_id` (`conversation_id`),
   CONSTRAINT `chat_messages_ibfk_1` FOREIGN KEY (`conversation_id`) REFERENCES `chat_conversations` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 16. Force Update — one row per (app, platform). The app calls GET /app-version on
+--     launch and compares its own installed version against min_version; if it's
+--     older AND force_update=1, the app shows a full-screen blocking update prompt
+--     (see ForceUpdateGate in both saferide_user and saferide_driver).
+CREATE TABLE IF NOT EXISTS `app_versions` (
+  `id`               INT NOT NULL AUTO_INCREMENT,
+  `app`              ENUM('user','driver') NOT NULL,
+  `platform`         ENUM('android','ios') NOT NULL,
+  `latest_version`   VARCHAR(20) NOT NULL DEFAULT '1.0.0',
+  `min_version`      VARCHAR(20) NOT NULL DEFAULT '1.0.0',
+  `force_update`     TINYINT(1) NOT NULL DEFAULT 0,
+  `update_message`   VARCHAR(500) DEFAULT NULL,
+  `store_url`        VARCHAR(500) DEFAULT NULL,
+  `created_at`       TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`       TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `app_platform` (`app`, `platform`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO `app_versions` (`app`, `platform`, `latest_version`, `min_version`, `force_update`, `store_url`) VALUES
+  ('user',   'android', '1.10.5', '1.10.5', 0, 'https://play.google.com/store/apps/details?id=com.sigirideuserstaxi'),
+  ('user',   'ios',     '1.10.5', '1.10.5', 0, NULL),
+  ('driver', 'android', '1.29',   '1.29',   0, 'https://play.google.com/store/apps/details?id=com.sigiridecaptain'),
+  ('driver', 'ios',     '1.29',   '1.29',   0, NULL);

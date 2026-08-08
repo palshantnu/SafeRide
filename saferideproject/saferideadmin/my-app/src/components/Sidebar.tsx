@@ -6,6 +6,7 @@ import {
   BadgeDollarSign, UserCog, CalendarCheck, ShieldCheck,
   Settings, MessageSquare, Zap, LogOut, ChevronDown, FileText, Wallet,
   History, Map, LayoutTemplate, MessageSquareText, BellRing, IndianRupee, Star,
+  ShieldAlert,
   type LucideIcon
 } from "lucide-react";
 import { usePermissions } from "../context/PermissionsContext";
@@ -49,6 +50,7 @@ const navItems: NavItem[] = [
   { name: "Role & Permissions", icon: ShieldCheck, path: "/dashboard/roles", module: "roles" },
   { name: "App Settings", icon: Settings, path: "/dashboard/settings" },
   { name: "Chat System", icon: MessageSquare, path: "/dashboard/chat" },
+  { name: "Force Update", icon: ShieldAlert, path: "/dashboard/force-update" },
 ];
 
 interface SidebarProps {

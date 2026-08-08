@@ -89,6 +89,10 @@ export const sendChatReply         = (conversationId: string | number, message: 
 export const closeChatConversation = (conversationId: string | number) => API.patch(`/admin/support/conversations/${conversationId}/close`);
 export const reopenChatConversation = (conversationId: string | number) => API.patch(`/admin/support/conversations/${conversationId}/reopen`);
 
+// Force Update
+export const getAppVersions   = () => API.get('/admin/app-versions');
+export const updateAppVersion = (id: number | string, data: object) => API.put(`/admin/app-versions/${id}`, data);
+
 // Staff
 export const getAllStaff          = ()                              => API.get('/admin/staff');
 export const getStaffById         = (id: number | string)           => API.get(`/admin/staff/${id}`);
