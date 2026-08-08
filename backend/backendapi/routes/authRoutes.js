@@ -35,6 +35,7 @@ const parcelController = require('../controllers/parcelController');
 const uploadParcel = require('../middleware/uploadParcel');
 const onspotController = require('../controllers/onspotController');
 const locationController = require('../controllers/locationController');
+const chatController = require('../controllers/chatController');
 
 //---------------------------------------------------Admin-panel---------------------------------------------------------------//
 
@@ -411,6 +412,18 @@ router.get('/driver/reviews/:driver_id', ratingController.getDriverReviewsById);
 
 router.get('/admin/booking-rejections', verifyToken, bookingController.getBookingRejections);
 router.get('/admin/driver-documents', verifyToken, driver.getAllDriverDocuments);
+
+//-------------------------------------------------Chat Support--------------------------------------------------------------//
+// user / captain — their own support conversation with admin
+router.get('/support/conversation',  verifyToken, chatController.getMyConversation);
+router.post('/support/send',         verifyToken, chatController.sendMessage);
+
+// admin — support inbox
+router.get('/admin/support/conversations',            verifyToken, chatController.adminGetConversations);
+router.get('/admin/support/conversations/:id/messages', verifyToken, chatController.adminGetMessages);
+router.post('/admin/support/conversations/:id/send',    verifyToken, chatController.adminSendMessage);
+router.patch('/admin/support/conversations/:id/close',  verifyToken, chatController.adminCloseConversation);
+router.patch('/admin/support/conversations/:id/reopen', verifyToken, chatController.adminReopenConversation);
 
 
 module.exports = router;

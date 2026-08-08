@@ -31,6 +31,7 @@ import StateCityManagement   from "../pages/location/StateCityManagement";
 import InterCityHistory    from "../pages/history/InterCityHistory";
 import ParcelHistory       from "../pages/history/ParcelHistory";
 import OnSpotHistory       from "../pages/history/OnSpotHistory";
+import ChatSystem          from "../pages/chat/ChatSystem";
 import NotFound from "../pages/NotFound";
 import AdminLayout from "../layouts/AdminLayout";
 import RequirePermission from "../components/RequirePermission";
@@ -94,6 +95,7 @@ export default function AppRoutes() {
         <Route path="/parcel-history"            element={admin("parcel",              <ParcelHistory />)} />
         <Route path="/onspot-history"            element={admin("onspot",              <OnSpotHistory />)} />
         <Route path="/state-city"                element={admin("locations",           <StateCityManagement />)} />
+        <Route path="/dashboard/chat"            element={<PrivateRoute><AdminLayout searchQuery={searchQuery} setSearchQuery={setSearchQuery}><ChatSystem /></AdminLayout></PrivateRoute>} />
 
         {/* 404 — any unknown route */}
         <Route path="*" element={<NotFound />} />

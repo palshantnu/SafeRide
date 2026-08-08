@@ -1,7 +1,10 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
+const { initSocket } = require('./services/socket');
 const app = express();
+const httpServer = http.createServer(app);
 
 app.set('trust proxy', true);
 
@@ -35,7 +38,9 @@ app.use('/uploads', express.static('uploads'));
 
 const { startBookingExpiryJob } = require('./services/bookingExpiry');
 
-app.listen(process.env.PORT || 3000, () => {
+initSocket(httpServer, allowedOrigins);
+
+httpServer.listen(process.env.PORT || 3000, () => {
   console.log("Server running...");
   startBookingExpiryJob();
 });

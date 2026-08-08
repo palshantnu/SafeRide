@@ -82,6 +82,13 @@ export const updatePlan       = (id: any, fd: any) => API.put(`/updateplan/${id}
 export const deletePlan       = (id: any)      => API.delete(`/deleteplan/${id}`);
 export const togglePlanStatus = (id: any, status: any) => API.patch(`/planstatus/${id}/status`, { status });
 
+// Chat Support
+export const getChatConversations = (params?: Record<string, unknown>) => API.get('/admin/support/conversations', { params });
+export const getChatMessages       = (conversationId: string | number) => API.get(`/admin/support/conversations/${conversationId}/messages`);
+export const sendChatReply         = (conversationId: string | number, message: string) => API.post(`/admin/support/conversations/${conversationId}/send`, { message });
+export const closeChatConversation = (conversationId: string | number) => API.patch(`/admin/support/conversations/${conversationId}/close`);
+export const reopenChatConversation = (conversationId: string | number) => API.patch(`/admin/support/conversations/${conversationId}/reopen`);
+
 // Staff
 export const getAllStaff          = ()                              => API.get('/admin/staff');
 export const getStaffById         = (id: number | string)           => API.get(`/admin/staff/${id}`);

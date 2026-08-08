@@ -112,3 +112,32 @@ ALTER TABLE onspot_bookings
 ALTER TABLE sigi_bookings
   ADD COLUMN IF NOT EXISTS platform_fee DECIMAL(10,2) DEFAULT '0.00',
   ADD COLUMN IF NOT EXISTS access_fee   DECIMAL(10,2) DEFAULT '0.00';
+
+-- 15. Chat Support — one conversation per user/driver with the admin support team,
+--     backed by Socket.IO for live delivery + these tables for history/REST fallback.
+CREATE TABLE IF NOT EXISTS `chat_conversations` (
+  `id`                     INT NOT NULL AUTO_INCREMENT,
+  `participant_type`       ENUM('USER','DRIVER') NOT NULL,
+  `participant_id`         INT NOT NULL,
+  `status`                 ENUM('OPEN','CLOSED') NOT NULL DEFAULT 'OPEN',
+  `last_message`           TEXT DEFAULT NULL,
+  `last_message_at`        TIMESTAMP NULL DEFAULT NULL,
+  `unread_by_admin`        INT NOT NULL DEFAULT 0,
+  `unread_by_participant`  INT NOT NULL DEFAULT 0,
+  `created_at`             TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`             TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `participant` (`participant_type`, `participant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `chat_messages` (
+  `id`               INT NOT NULL AUTO_INCREMENT,
+  `conversation_id`  INT NOT NULL,
+  `sender_type`      ENUM('USER','DRIVER','ADMIN') NOT NULL,
+  `sender_id`        INT DEFAULT NULL,
+  `message`          TEXT NOT NULL,
+  `created_at`       TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `conversation_id` (`conversation_id`),
+  CONSTRAINT `chat_messages_ibfk_1` FOREIGN KEY (`conversation_id`) REFERENCES `chat_conversations` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
