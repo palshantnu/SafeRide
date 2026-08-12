@@ -11,6 +11,15 @@ const SECRET = process.env.JWT_SECRET;
 // One-time welcome gift credited to a Business Associate's wallet on first registration
 const BA_SIGNUP_GIFT = 100;
 
+// Driver's earning on a booking = plan_captain_commission + Σ(PAID topup captain_commission)
+const computeDriverAmount = (planCaptainCommission, topups = []) => {
+    const planPart  = parseFloat(planCaptainCommission || 0);
+    const topupPart = topups
+        .filter(t => t.status === 'PAID')
+        .reduce((sum, t) => sum + parseFloat(t.captain_commission || 0), 0);
+    return Math.round((planPart + topupPart) * 100) / 100;
+};
+
 
 exports.sendOTP = async (req, res) => {
     try {
@@ -635,6 +644,7 @@ exports.getMyBABookings = async (req, res) => {
                 p.plan_price,
                 p.plan_hour,
                 p.plan_km,
+                p.plan_captain_commission,
 
                 u.name AS user_name,
                 u.mobile AS user_mobile,
@@ -672,7 +682,7 @@ exports.getMyBABookings = async (req, res) => {
             `, [bookingIds]);
 
             const [allTopups] = await db.query(`
-                SELECT id, booking_id, extra_km, price_per_km, topup_amount, reason, status, created_at
+                SELECT id, booking_id, extra_km, price_per_km, topup_amount, captain_commission, reason, status, created_at
                 FROM booking_topups
                 WHERE booking_id IN (?)
                 ORDER BY id ASC
@@ -691,11 +701,16 @@ exports.getMyBABookings = async (req, res) => {
                 topupMap[topup.booking_id].push(topup);
             });
 
-            data = bookings.map(booking => ({
-                ...booking,
-                meter_images: imageMap[booking.id] || [],
-                topups:       topupMap[booking.id] || []
-            }));
+            data = bookings.map(booking => {
+                const topups = topupMap[booking.id] || [];
+                return {
+                    ...booking,
+                    meter_images:  imageMap[booking.id] || [],
+                    topups,
+                    driver_amount: computeDriverAmount(booking.plan_captain_commission, topups),
+                    plan_captain_commission: undefined
+                };
+            });
         }
 
         return res.json({
