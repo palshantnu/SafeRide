@@ -1,7 +1,7 @@
 const db = require("../config/db");
 const { v4: uuidv4 } = require('uuid');
 const moment = require('moment');
-const { notifyDriversByService } = require("../services/notification");
+const { notifyDriversByService, notifyBAsByService } = require("../services/notification");
 const { createAdminNotification } = require('../services/adminNotification');
 
 exports.createBookingRequest = async (req, res) => {
@@ -184,8 +184,12 @@ exports.createBookingRequest = async (req, res) => {
             person, formattedDate, otp
         ]);
 
-        // notify all captains registered for this service/sub-service
+        // notify all captains registered for this service/sub-service, and every
+        // Business Associate who also handles this service (BAs poll getBABookings
+        // for SEARCHING bookings today with no push at all — see BAHomeFlow.js)
         await notifyDriversByService(service_id, subservice_id, "New booking request",
+            `New booking request from ${pickup_city}`, { type: "NEW_BOOKING", booking_id });
+        await notifyBAsByService(service_id, "New booking request",
             `New booking request from ${pickup_city}`, { type: "NEW_BOOKING", booking_id });
 
         return res.json({

@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
 const { createAdminNotification } = require('../services/adminNotification');
+const { notifyUser } = require('../services/notification');
 require("dotenv").config();
 const SECRET = process.env.JWT_SECRET;
 
@@ -720,7 +721,7 @@ exports.baacceptBooking = async (req, res) => {
         }
 
         const [booking] = await db.query(
-            `SELECT b.id, b.status FROM bookings b
+            `SELECT b.id, b.status, b.user_id, b.pickup_city FROM bookings b
              INNER JOIN ba_services bs ON bs.service_id = b.service_id AND bs.ba_id = ?
              WHERE b.booking_id = ?`,
             [ba_id, booking_id]
@@ -738,6 +739,10 @@ exports.baacceptBooking = async (req, res) => {
             `UPDATE bookings SET bussinessassociate_id = ?, status = 'ACCEPTED', updated_at = NOW() WHERE booking_id = ?`,
             [ba_id, booking_id]
         );
+
+        await notifyUser(booking[0].user_id, "Booking accepted",
+            "Your booking has been accepted. A captain will be assigned shortly.",
+            { type: "BOOKING_ACCEPTED", booking_id });
 
         return res.json({ status: true, message: "Booking Accept Successfully" });
 

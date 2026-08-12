@@ -106,6 +106,26 @@ const notifyDriversByService = async (serviceId, subServiceId, title, body, data
     }
 };
 
+// Broadcast a "new booking" to every Business Associate registered for the service
+// (via ba_services). Best-effort — never throws. Returns how many BAs were pinged.
+const notifyBAsByService = async (serviceId, title, body, data = {}) => {
+    if (!serviceId) return 0;
+    try {
+        const [rows] = await db.query(
+            `SELECT ba.fcm_token
+             FROM business_associates ba
+             INNER JOIN ba_services bs ON bs.ba_id = ba.id
+             WHERE bs.service_id = ? AND ba.fcm_token IS NOT NULL AND ba.fcm_token <> ''`,
+            [serviceId]
+        );
+        await Promise.all(rows.map(r => sendPush(r.fcm_token, title, body, data)));
+        return rows.length;
+    } catch (err) {
+        console.error("notifyBAsByService error:", err.message);
+        return 0;
+    }
+};
+
 // keep the default export a callable function (existing `require("./notification")` usage),
 // and expose the named helpers as properties.
 module.exports = sendPush;
@@ -114,4 +134,5 @@ module.exports.notifyUser  = notifyUser;
 module.exports.notifyDriver = notifyDriver;
 module.exports.notifyBA    = notifyBA;
 module.exports.notifyDriversByService = notifyDriversByService;
+module.exports.notifyBAsByService = notifyBAsByService;
 module.exports.notifyAudience = notifyAudience;
