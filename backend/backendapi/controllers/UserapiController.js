@@ -7,7 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 
 require("dotenv").config();
 const SECRET = process.env.JWT_SECRET;
-const { notifyUser, notifyDriver } = require("../services/notification");
+const { notifyUser, notifyDriver, notifyBA } = require("../services/notification");
 const { createAdminNotification } = require('../services/adminNotification');
 
 exports.payToken = async (req, res) => {
@@ -30,6 +30,7 @@ exports.payToken = async (req, res) => {
                 b.user_id,
                 b.driver_id,
                 b.plan_id,
+                b.bussinessassociate_id,
                 p.token_price
             FROM bookings b
             LEFT JOIN plans p ON p.id = b.plan_id
@@ -102,10 +103,16 @@ exports.payToken = async (req, res) => {
             WHERE id = ?
         `, values);
 
-        // notify assigned driver that token was paid
+        // notify assigned driver (and owning BA, if any) that token was paid
         try {
             if (booking.driver_id) {
                 await notifyDriver(booking.driver_id, "Token paid",
+                    `User paid token for booking ${booking.booking_id}`,
+                    { type: "TOKEN_PAID", booking_id: booking.booking_id }
+                );
+            }
+            if (booking.bussinessassociate_id) {
+                await notifyBA(booking.bussinessassociate_id, "Token paid",
                     `User paid token for booking ${booking.booking_id}`,
                     { type: "TOKEN_PAID", booking_id: booking.booking_id }
                 );

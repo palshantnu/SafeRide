@@ -1,6 +1,6 @@
 const db = require("../config/db");
 const { v4: uuidv4 } = require("uuid");
-const { notifyUser, notifyDriversByService, notifyDriver } = require("../services/notification");
+const { notifyUser, notifyDriversByService, notifyDriver, notifyBA } = require("../services/notification");
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────────
 const genId  = (prefix) => prefix + uuidv4().slice(0, 10).toUpperCase();
@@ -259,7 +259,7 @@ exports.payToken = async (req, res) => {
         if (!parcel_booking_id) return res.status(400).json({ status: false, message: "parcel_booking_id is required" });
 
         const [[booking]] = await db.execute(
-            `SELECT id, status, driver_id, paid, token_amount FROM parcel_bookings
+            `SELECT id, status, driver_id, bussinessassociate_id, paid, token_amount FROM parcel_bookings
              WHERE parcel_booking_id = ? AND user_id = ? AND deleted_at IS NULL`,
             [parcel_booking_id, user_id]
         );
@@ -275,10 +275,16 @@ exports.payToken = async (req, res) => {
             WHERE id = ?
         `, [booking.id]);
 
-        // notify assigned driver that token was paid
+        // notify assigned driver (and owning BA, if any) that token was paid
         try {
             if (booking.driver_id) {
                 await notifyDriver(booking.driver_id, "Token paid",
+                    `User paid token for parcel ${parcel_booking_id}`,
+                    { type: "TOKEN_PAID", parcel_booking_id }
+                );
+            }
+            if (booking.bussinessassociate_id) {
+                await notifyBA(booking.bussinessassociate_id, "Token paid",
                     `User paid token for parcel ${parcel_booking_id}`,
                     { type: "TOKEN_PAID", parcel_booking_id }
                 );

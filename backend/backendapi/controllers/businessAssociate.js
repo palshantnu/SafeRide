@@ -530,6 +530,8 @@ const params = [ba_id, ba_id];
                 b.balance_amount,
                 b.distance,
                 b.total_fare,
+                b.token_amount,
+                b.token_paid,
                 b.actual_fare,
                 b.platform_fee,
                 b.access_fee,
@@ -614,6 +616,8 @@ exports.getMyBABookings = async (req, res) => {
                 b.balance_amount,
                 b.distance,
                 b.total_fare,
+                b.token_amount,
+                b.token_paid,
                 b.actual_fare,
                 b.platform_fee,
                 b.access_fee,
@@ -654,11 +658,51 @@ exports.getMyBABookings = async (req, res) => {
             ORDER BY b.id DESC
         `, params);
 
+        let data = bookings;
+
+        if (bookings.length > 0) {
+            const bookingIds = bookings.map(b => b.id);
+
+            const [allImages] = await db.query(`
+                SELECT id, booking_id, image_type,
+                    CONCAT('uploads/meter_images/', image) AS image, created_at
+                FROM booking_meter_images
+                WHERE booking_id IN (?)
+                ORDER BY id ASC
+            `, [bookingIds]);
+
+            const [allTopups] = await db.query(`
+                SELECT id, booking_id, extra_km, price_per_km, topup_amount, reason, status, created_at
+                FROM booking_topups
+                WHERE booking_id IN (?)
+                ORDER BY id ASC
+            `, [bookingIds]);
+
+            const imageMap = {};
+            const topupMap = {};
+
+            allImages.forEach(img => {
+                if (!imageMap[img.booking_id]) imageMap[img.booking_id] = [];
+                imageMap[img.booking_id].push(img);
+            });
+
+            allTopups.forEach(topup => {
+                if (!topupMap[topup.booking_id]) topupMap[topup.booking_id] = [];
+                topupMap[topup.booking_id].push(topup);
+            });
+
+            data = bookings.map(booking => ({
+                ...booking,
+                meter_images: imageMap[booking.id] || [],
+                topups:       topupMap[booking.id] || []
+            }));
+        }
+
         return res.json({
             status: true,
             message: "My bookings fetched successfully",
-            total: bookings.length,
-            data: bookings
+            total: data.length,
+            data
         });
 
     } catch (err) {
@@ -948,6 +992,8 @@ exports.getBACurrentBookings = async (req, res) => {
                 b.created_at,
                 b.bussinessassociate_id,
                  b.total_fare,
+                b.token_amount,
+                b.token_paid,
                 b.platform_fee,
                 b.access_fee,
                 b.service_id,
