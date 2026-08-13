@@ -828,12 +828,13 @@ exports.assignDriverToBooking = async (req, res) => {
 
         // ✅ Get Booking
         const [booking] = await db.query(
-            `SELECT 
+            `SELECT
                 id,
                 status,
                 user_status,
                 driver_status,
-                driver_id
+                driver_id,
+                service_id
              FROM bookings
              WHERE booking_id = ?
              AND bussinessassociate_id = ?`,
@@ -939,7 +940,7 @@ exports.assignDriverToBooking = async (req, res) => {
 
         await db.query(
             `UPDATE bookings
-             SET 
+             SET
                 driver_id = ?,
                 status = ?,
                 user_status = ?,
@@ -954,6 +955,15 @@ exports.assignDriverToBooking = async (req, res) => {
                 booking_id
             ]
         );
+
+        // ✅ Driver now belongs to whichever service this booking is for,
+        // regardless of what service they were on before this assignment
+        if (bookingData.service_id) {
+            await db.query(
+                `UPDATE drivers SET service_id = ? WHERE id = ?`,
+                [bookingData.service_id, driver_id]
+            );
+        }
 
         const [updated] = await db.query(
             `SELECT 
