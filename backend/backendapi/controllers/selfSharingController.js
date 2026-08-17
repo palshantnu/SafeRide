@@ -169,6 +169,8 @@ exports.myTrips = async (req, res) => {
                    COALESCE(SUM(sb.seats), 0)                    AS booked_seats,
                    COALESCE(SUM(sb.token_amount), 0)             AS token_collected,
                    COALESCE(SUM(sb.balance_amount * sb.balance_paid), 0) AS balance_collected,
+                   COALESCE(SUM(sb.platform_fee), 0)             AS platform_fee_collected,
+                   COALESCE(SUM(sb.access_fee), 0)               AS access_fee_collected,
                    ad.full_name AS assigned_driver_name,
                    ad.phone     AS assigned_driver_mobile
             FROM sigi_trips t
