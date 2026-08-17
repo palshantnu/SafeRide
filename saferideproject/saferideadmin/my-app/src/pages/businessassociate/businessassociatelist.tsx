@@ -705,7 +705,11 @@ export default function BAList() {
 
   const handleStatusChange = async (ba: BA, newStatus: number) => {
     try {
-      await apiPut(`/ba/update/${ba.id}`, { status: newStatus });
+      const res = await apiPatch(`/ba/${ba.id}/status`, { status: newStatus });
+      if (res?.status === false) {
+        alert(res.message || 'Status update failed');
+        return;
+      }
       setBaList(prev => prev.map(b => b.id === ba.id ? { ...b, status: newStatus } : b));
     } catch { alert('Status update failed'); }
   };
