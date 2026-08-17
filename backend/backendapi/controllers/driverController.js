@@ -1113,6 +1113,8 @@ exports.getDriverBookingHistory = async (req, res) => {
 
                 p.plan_name,
                 p.plan_price,
+                p.plan_km,
+                p.plan_hour,
                 p.plan_captain_commission,
                 b.platform_fee,
                 b.access_fee,
