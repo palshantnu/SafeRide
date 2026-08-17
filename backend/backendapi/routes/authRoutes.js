@@ -225,6 +225,7 @@ router.get("/ba/profile",verifyToken,baController.getBusinessAssociateProfile);
 router.put("/ba/update",verifyToken,uploadBAProfile.single("profile_pic"),baController.updateBusinessAssociate);
 router.delete("/ba/delete/:id",baController.deleteBusinessAssociate);
 router.patch("/ba/:id/status",baController.changeBusinessAssociateStatus);
+router.put("/ba/:id",baController.updateBusinessAssociateByAdmin);
 
 router.post("/ba/upload-kyc", verifyToken, upload.any(), baController.uploadBAKycDocument);
 router.get("/ba/kyc", verifyToken, baController.getBADocuments);

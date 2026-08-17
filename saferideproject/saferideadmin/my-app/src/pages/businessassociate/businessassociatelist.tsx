@@ -462,7 +462,7 @@ function EditModal({ ba, allServices, onClose, onSaved }: EditModalProps) {
     setSaving(true);
     setError(null);
     try {
-      const res = await apiPut(`/ba/update/${ba.id}`, {
+      const res = await apiPut(`/ba/${ba.id}`, {
         ba_name: name.trim(),
         ba_mobile: mobile.trim(),
         services: selectedServices.map((s) => ({

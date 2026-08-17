@@ -1400,6 +1400,106 @@ exports.updateBusinessAssociate = async (req, res) => {
     }
 };
 
+// PUT /ba/:id  — admin edits any BA's name/mobile/company_name/services by id
+exports.updateBusinessAssociateByAdmin = async (req, res) => {
+    const conn = await db.getConnection();
+    let transactionStarted = false;
+
+    try {
+        const { id } = req.params;
+        const { ba_name, ba_mobile, company_name, services } = req.body;
+
+        if (!ba_name?.trim() || !ba_mobile?.trim()) {
+            return res.status(400).json({ status: false, message: "Name and mobile are required" });
+        }
+
+        const [[ba]] = await conn.query(
+            `SELECT id FROM business_associates WHERE id = ?`, [id]
+        );
+
+        if (!ba) {
+            return res.status(404).json({ status: false, message: "Associate not found" });
+        }
+
+        const [[duplicateMobile]] = await conn.query(
+            `SELECT id FROM business_associates WHERE ba_mobile = ? AND id != ?`,
+            [ba_mobile.trim(), id]
+        );
+
+        if (duplicateMobile) {
+            return res.status(409).json({ status: false, message: "Mobile number already in use" });
+        }
+
+        await conn.beginTransaction();
+        transactionStarted = true;
+
+        const setParts  = [`ba_name = ?`, `ba_mobile = ?`];
+        const setValues = [ba_name.trim(), ba_mobile.trim()];
+
+        if (company_name !== undefined) {
+            setParts.push(`company_name = ?`);
+            setValues.push(company_name?.trim() || null);
+        }
+
+        setValues.push(id);
+        await conn.query(
+            `UPDATE business_associates SET ${setParts.join(", ")} WHERE id = ?`,
+            setValues
+        );
+
+        if (Array.isArray(services)) {
+            await conn.query(`DELETE FROM ba_services WHERE ba_id = ?`, [id]);
+
+            if (services.length > 0) {
+                const values = services.map(s => [
+                    id,
+                    s.service_id,
+                    parseFloat(s.commission_rate) || 0.00
+                ]);
+                await conn.query(
+                    `INSERT INTO ba_services (ba_id, service_id, commission_rate) VALUES ?`,
+                    [values]
+                );
+            }
+        }
+
+        await conn.commit();
+
+        const [[updatedBA]] = await conn.query(
+            `SELECT id, ba_name, ba_mobile, company_name, profile_pic, status, created_at FROM business_associates WHERE id = ?`, [id]
+        );
+
+        const [updatedServices] = await conn.query(`
+            SELECT
+                bs.id, bs.service_id, bs.commission_rate,
+                bs.created_at AS assigned_at,
+                s.title AS service_name
+            FROM ba_services bs
+            JOIN services s ON s.id = bs.service_id
+            WHERE bs.ba_id = ?
+            ORDER BY s.title
+        `, [id]);
+
+        res.json({
+            status: true,
+            message: "Business Associate updated successfully",
+            data: {
+                ...updatedBA,
+                services: updatedServices
+            }
+        });
+
+    } catch (err) {
+        console.error("updateBusinessAssociateByAdmin error:", err);
+        if (transactionStarted) {
+            await conn.rollback();
+        }
+        res.status(500).json({ status: false, message: "Something went wrong", error: err.message });
+    } finally {
+        conn.release();
+    }
+};
+
 exports.getBusinessAssociateProfile = async (req, res) => {
     try {
         const id = req.user.id;
