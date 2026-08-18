@@ -558,6 +558,7 @@ const params = [ba_id, ba_id];
                 p.plan_price,
                 p.plan_hour,
                 p.plan_km,
+                p.plan_captain_commission,
 
                 u.name   AS user_name,
                 u.mobile AS user_mobile,
@@ -579,11 +580,19 @@ const params = [ba_id, ba_id];
             ORDER BY b.id DESC
         `, params);
 
+        // These are still SEARCHING (not yet accepted), so no topups can exist on them yet —
+        // driver_amount is just the plan's captain commission, same formula getMyBABookings uses.
+        const data = bookings.map(b => ({
+            ...b,
+            driver_amount: computeDriverAmount(b.plan_captain_commission, []),
+            plan_captain_commission: undefined
+        }));
+
         return res.json({
             status: true,
             message: "Bookings fetched successfully",
-            total: bookings.length,
-            data: bookings
+            total: data.length,
+            data
         });
 
     } catch (err) {
