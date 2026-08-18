@@ -737,12 +737,19 @@ exports.getBookingRequests = async (req, res) => {
         const driver_id = req.user.id;
 
         const [[driver]] = await db.query(
-            `SELECT id, service_id, sub_service_id, wallet, current_lat, current_lng, status FROM drivers WHERE id = ?`,
+            `SELECT id, service_id, sub_service_id, ba_id, wallet, current_lat, current_lng, status FROM drivers WHERE id = ?`,
             [driver_id]
         );
 
         if (!driver) {
             return res.status(404).json({ status: false, message: "Driver not found" });
+        }
+
+        // Drivers attached to a Business Associate (ba_id set) don't get bookings sent
+        // to them directly — those jobs go to the BA instead, who assigns them onward.
+        // Only independent drivers (ba_id IS NULL) see the open request list here.
+        if (driver.ba_id) {
+            return res.json({ status: true, message: "Incoming booking requests", data: [] });
         }
 
         const isInCity = parseInt(driver.service_id) === 1;
