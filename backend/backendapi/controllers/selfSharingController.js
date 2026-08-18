@@ -1020,7 +1020,7 @@ exports.cancelBooking = async (req, res) => {
 
 exports.adminGetAllTrips = async (req, res) => {
     try {
-        const { status, from_city, to_city, creator_type, from_date, to_date, search, page, limit } = req.query;
+        const { status, service_id, from_city, to_city, creator_type, from_date, to_date, search, page, limit } = req.query;
 
         const limitNum = Math.max(1, Number(limit) || 10);
         const pageNum  = Math.max(1, Number(page)  || 1);
@@ -1029,6 +1029,9 @@ exports.adminGetAllTrips = async (req, res) => {
         const conditions = [];
         const values     = [];
 
+        // sigi_trips is shared by both "Self Sharing" and "Inter City" — they're the same
+        // carpool mechanism, distinguished only by which service the trip was created under.
+        if (service_id)   { conditions.push(`t.service_id = ?`);              values.push(service_id); }
         if (status)       { conditions.push(`t.status = ?`);                  values.push(status.toUpperCase()); }
         if (creator_type) { conditions.push(`t.creator_type = ?`);            values.push(creator_type.toUpperCase()); }
         if (from_city)    { conditions.push(`t.from_city LIKE ?`);            values.push(`%${from_city}%`); }
@@ -1096,7 +1099,7 @@ exports.adminGetAllTrips = async (req, res) => {
 
 exports.adminGetAllBookings = async (req, res) => {
     try {
-        const { trip_id, status, from_date, to_date, search, page, limit } = req.query;
+        const { trip_id, status, service_id, from_date, to_date, search, page, limit } = req.query;
 
         const limitNum = Math.max(1, Number(limit) || 10);
         const pageNum  = Math.max(1, Number(page)  || 1);
@@ -1105,6 +1108,9 @@ exports.adminGetAllBookings = async (req, res) => {
         const conditions = [];
         const values     = [];
 
+        // sigi_bookings has no service_id of its own — it belongs to a trip, and that trip's
+        // service_id is what tells "Self Sharing" (72) and "Inter City" (73) bookings apart.
+        if (service_id) { conditions.push(`st.service_id = ?`);         values.push(service_id); }
         if (trip_id)   { conditions.push(`st.trip_id = ?`);             values.push(trip_id); }
         if (status)    { conditions.push(`sb.status = ?`);              values.push(status.toUpperCase()); }
         if (from_date) { conditions.push(`DATE(sb.created_at) >= ?`);   values.push(from_date); }
@@ -1125,7 +1131,7 @@ exports.adminGetAllBookings = async (req, res) => {
         );
 
         const [rows] = await db.execute(`
-            SELECT sb.*, st.trip_id, st.from_city, st.to_city, st.departure_time,
+            SELECT sb.*, st.trip_id, st.service_id, st.from_city, st.to_city, st.departure_time,
                    st.from_city AS pickup_city,
                    st.to_city AS drop_city,
                    st.departure_time AS schedule_date,

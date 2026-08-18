@@ -6,6 +6,11 @@ import {
 } from 'lucide-react';
 import { getSelfSharingTrips, getSelfSharingBookings } from '../../services/api';
 
+// "Self Sharing" (service_id 72 in production) shares its sigi_trips/sigi_bookings tables
+// with "Inter City" (service_id 73) — same carpool mechanism, different service. Scope this
+// page to 72 only so Inter City trips don't also show up here (see InterCityHistory.tsx).
+const SELF_SHARING_SERVICE_ID = 72;
+
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface SharingTrip {
   id: number;
@@ -204,7 +209,7 @@ function TripsTab() {
   const fetchTrips = useCallback(async () => {
     setLoading(true);
     try {
-      const res  = await getSelfSharingTrips({ limit: 1000 });
+      const res  = await getSelfSharingTrips({ service_id: SELF_SHARING_SERVICE_ID, limit: 1000 });
       const body = (res as { data: unknown }).data;
       console.log('[SelfSharing] trips raw response:', body);
       const list = extractList<SharingTrip>(body);
@@ -369,7 +374,7 @@ function BookingsTab() {
   const fetchBookings = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getSelfSharingBookings({ limit: 1000 });
+      const res = await getSelfSharingBookings({ service_id: SELF_SHARING_SERVICE_ID, limit: 1000 });
       const body = (res as { data: unknown }).data;
       console.log('[SelfSharing] bookings raw response:', body);
       const list = extractList<SharingBooking>(body);
