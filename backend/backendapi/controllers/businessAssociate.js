@@ -20,6 +20,15 @@ const computeDriverAmount = (planCaptainCommission, topups = []) => {
     return Math.round((planPart + topupPart) * 100) / 100;
 };
 
+// In-City fare is metered (not plan-based) — driver's cut is the metered fare minus the
+// company's access/platform fee cut. Mirrors driverController.computeInCityDriverAmount.
+const computeInCityDriverAmount = (actualFare, accessFee, platformFee) => {
+    const fare = parseFloat(actualFare || 0);
+    if (!(fare > 0)) return null;
+    const companyCut = parseFloat(accessFee || 0) + parseFloat(platformFee || 0);
+    return Math.round(Math.max(0, fare - companyCut) * 100) / 100;
+};
+
 
 exports.sendOTP = async (req, res) => {
     try {
@@ -1026,6 +1035,7 @@ exports.getBACurrentBookings = async (req, res) => {
                 b.created_at,
                 b.bussinessassociate_id,
                  b.total_fare,
+                b.actual_fare,
                 b.token_amount,
                 b.token_paid,
                 b.platform_fee,
@@ -1038,6 +1048,7 @@ exports.getBACurrentBookings = async (req, res) => {
                 p.plan_price,
                 p.plan_hour,
                 p.plan_km,
+                p.plan_captain_commission,
 
                 u.name        AS user_name,
                 u.mobile      AS user_mobile,
@@ -1100,11 +1111,19 @@ exports.getBACurrentBookings = async (req, res) => {
         });
 
         // ── Attach to each booking ────────────────────────────────────
-        const data = bookings.map(booking => ({
-            ...booking,
-            meter_images: imageMap[booking.id]  || [],
-            topups:       topupMap[booking.id]  || []
-        }));
+        const data = bookings.map(booking => {
+            const topups = topupMap[booking.id] || [];
+            const isInCity = parseInt(booking.service_id) === 1;
+            return {
+                ...booking,
+                meter_images: imageMap[booking.id] || [],
+                topups,
+                driver_amount: isInCity
+                    ? computeInCityDriverAmount(booking.actual_fare, booking.access_fee, booking.platform_fee)
+                    : computeDriverAmount(booking.plan_captain_commission, topups),
+                plan_captain_commission: undefined
+            };
+        });
 
         return res.json({
             status:  true,
