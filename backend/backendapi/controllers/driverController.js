@@ -1110,6 +1110,8 @@ exports.getDriverBookingHistory = async (req, res) => {
                 b.user_status,
                 b.driver_status,
                 b.created_at,
+                b.ride_started_at,
+                b.ride_completed_at,
 
                 p.plan_name,
                 p.plan_price,

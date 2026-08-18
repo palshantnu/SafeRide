@@ -903,6 +903,7 @@ exports.myBookings = async (req, res) => {
                    sb.status, sb.otp, sb.user_rated, sb.created_at,
                    st.trip_id, st.from_city, st.to_city, st.pickup_address,
                    st.departure_time, st.status AS trip_status,
+                   st.started_at AS ride_started_at, st.completed_at AS ride_completed_at,
                    CASE st.creator_type
                        WHEN 'DRIVER' THEN d.full_name
                        WHEN 'BA'     THEN ba.ba_name

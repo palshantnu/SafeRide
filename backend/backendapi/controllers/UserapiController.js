@@ -371,6 +371,8 @@ exports.userBookingHistory = async (req, res) => {
                 b.otp_verified,
                 b.user_rated,
                 b.created_at,
+                b.ride_started_at,
+                b.ride_completed_at,
                 p.plan_name,
                 p.plan_price,
                 p.plan_hour,
