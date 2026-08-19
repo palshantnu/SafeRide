@@ -189,3 +189,8 @@ ALTER TABLE parcel_bookings
 
 ALTER TABLE onspot_bookings
   ADD COLUMN IF NOT EXISTS cancellation_fee DECIMAL(10,2) DEFAULT '0.00';
+
+-- 19. Business Associates had no on-duty/off-duty toggle like drivers do (`drivers.is_online`),
+--     so getBABookings()/baacceptBooking() couldn't gate new job visibility/acceptance on it.
+ALTER TABLE business_associates
+  ADD COLUMN IF NOT EXISTS is_online TINYINT(1) NOT NULL DEFAULT 0;

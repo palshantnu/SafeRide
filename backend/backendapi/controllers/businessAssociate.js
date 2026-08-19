@@ -520,6 +520,12 @@ exports.getDriversByBA = async (req, res) => {
 exports.getBABookings = async (req, res) => {
     try {
         const ba_id = req.user.id;
+
+        const [[ba]] = await db.query(`SELECT is_online FROM business_associates WHERE id = ?`, [ba_id]);
+        if (!ba || !ba.is_online) {
+            return res.json({ status: true, message: "You are off duty", total: 0, data: [] });
+        }
+
         // const { status } = req.query;
 
         // let statusClause = `b.status = 'SEARCHING'`;
@@ -799,6 +805,11 @@ exports.baacceptBooking = async (req, res) => {
 
         if (!booking_id) {
             return res.status(400).json({ status: false, message: "booking_id required hai" });
+        }
+
+        const [[ba]] = await db.query(`SELECT is_online FROM business_associates WHERE id = ?`, [ba_id]);
+        if (!ba || !ba.is_online) {
+            return res.status(400).json({ status: false, message: "You are off duty. Go online to accept bookings." });
         }
 
         const [booking] = await db.query(
@@ -1530,10 +1541,73 @@ exports.updateBusinessAssociateByAdmin = async (req, res) => {
     }
 };
 
+exports.updateOnlineStatus = async (req, res) => {
+    try {
+        const ba_id = req.user.id;
+        const { is_online } = req.body;
+        if (is_online === undefined || ![0, 1].includes(Number(is_online))) {
+            return res.status(400).json({
+                status: false,
+                message: "is_online must be 0 or 1"
+            });
+        }
+
+        await db.query(
+            `UPDATE business_associates SET is_online = ? WHERE id = ?`,
+            [is_online, ba_id]
+        );
+
+        return res.json({
+            status: true,
+            message: `Business Associate is now ${is_online == 1 ? 'Online' : 'Offline'}`
+        });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            status: false,
+            message: "Server error",
+            error: error.message
+        });
+    }
+};
+
+exports.getOnlineStatus = async (req, res) => {
+    try {
+        const ba_id = req.user.id;
+
+        const [rows] = await db.query(
+            `SELECT id, ba_name, is_online FROM business_associates WHERE id = ?`,
+            [ba_id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                status: false,
+                message: "Business Associate not found"
+            });
+        }
+
+        return res.json({
+            status: true,
+            message: "Business Associate status fetched",
+            data: rows[0]
+        });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            status: false,
+            message: "Server error",
+            error: error.message
+        });
+    }
+};
+
 exports.getBusinessAssociateProfile = async (req, res) => {
     try {
         const id = req.user.id;
-        
+
         const [[ba]] = await db.query(
             `SELECT id, ba_name, ba_mobile, company_name, profile_pic, wallet, status, created_at
              FROM business_associates WHERE id = ?`,

@@ -210,6 +210,8 @@ router.post("/ba/add-services", verifyToken,baController.addBAServices);
 router.get("/ba/services", verifyToken, baController.getBAServices);
 router.post("/ba/create/driver", verifyToken, baController.createDriverByBA);
 router.get("/ba/driverlist/", verifyToken, baController.getDriversByBA);
+router.put("/ba/online-update-status", verifyToken, baController.updateOnlineStatus);
+router.get("/ba/online-status", verifyToken, baController.getOnlineStatus);
 router.get("/ba/bookings", verifyToken, baController.getBABookings);
 router.get("/ba/my-bookings", verifyToken, baController.getMyBABookings);
 router.post("/ba/assign-driver", verifyToken, baController.assignDriverToBooking);
