@@ -266,6 +266,14 @@ exports.markArrived = async (req, res) => {
             [trip.id]
         );
 
+        // notify every passenger on this trip
+        const [pax] = await db.execute(
+            `SELECT user_id, booking_id FROM sigi_bookings WHERE trip_id = ? AND status NOT IN ('CANCELLED')`,
+            [trip.id]
+        );
+        await Promise.all(pax.map(p => notifyUser(p.user_id, "Captain arrived",
+            "Your captain has arrived at the pickup location.", { type: "SIGI_TRIP_ARRIVED", booking_id: p.booking_id })));
+
         return res.json({ status: true, message: "Marked as arrived. Users can now pay full fare." });
 
     } catch (error) {
