@@ -152,6 +152,26 @@ function DetailModal({ data, type, onClose }: { data: SharingTrip | SharingBooki
 
   const d = data as Record<string, unknown>;
 
+  // Trip-level fields only ever show the CURRENT aggregate (e.g. "Passengers: 1" once a
+  // no-show has been cancelled off) — that hides exactly the history an admin needs (who
+  // booked, who got cancelled and why). So for a trip, pull every booking on it here.
+  const [tripBookings, setTripBookings] = useState<SharingBooking[]>([]);
+  const [tripBookingsLoading, setTripBookingsLoading] = useState(false);
+
+  useEffect(() => {
+    if (type !== 'trip' || !d.trip_id) return;
+    let cancelled = false;
+    setTripBookingsLoading(true);
+    getSelfSharingBookings({ trip_id: d.trip_id as string, limit: 1000 })
+      .then((res: { data: unknown }) => {
+        if (cancelled) return;
+        setTripBookings(extractList<SharingBooking>(res.data));
+      })
+      .catch(() => { if (!cancelled) setTripBookings([]); })
+      .finally(() => { if (!cancelled) setTripBookingsLoading(false); });
+    return () => { cancelled = true; };
+  }, [type, d.trip_id]);
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', padding: 16 }}>
       <div style={{ background: 'white', borderRadius: 20, width: 480, maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,0.18)', animation: 'slideUp 0.3s ease' }}>
@@ -183,6 +203,34 @@ function DetailModal({ data, type, onClose }: { data: SharingTrip | SharingBooki
               <Row label="Created"     value={fmtDate(d.created_at as string)} />
               <Row label="Trip Started" value={d.started_at ? fmtFull(d.started_at as string) : '—'} />
               <Row label="Trip Finished" value={d.completed_at ? fmtFull(d.completed_at as string) : '—'} />
+
+              <div style={{ marginTop: 18, marginBottom: 4, fontSize: 12, fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                Passengers ({tripBookings.length})
+              </div>
+              {tripBookingsLoading && (
+                <div style={{ padding: '14px 0', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>Loading passengers…</div>
+              )}
+              {!tripBookingsLoading && tripBookings.length === 0 && (
+                <div style={{ padding: '14px 0', textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>No bookings on this trip.</div>
+              )}
+              {!tripBookingsLoading && tripBookings.map(b => (
+                <div key={b.id} style={{ border: '1.5px solid #f1f5f9', borderRadius: 12, padding: '10px 12px', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>{b.user_name || '—'}</div>
+                      <div style={{ fontSize: 11, color: '#94a3b8' }}>{b.user_mobile || ''} · {b.booking_id}</div>
+                    </div>
+                    <StatusBadge status={b.status} />
+                  </div>
+                  {b.status === 'CANCELLED' && (
+                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed #f1f5f9', fontSize: 12, color: '#475569' }}>
+                      <div><b style={{ color: '#991b1b' }}>{cancelledByLabel(b.cancelled_by)}</b></div>
+                      {b.cancel_reason ? <div style={{ marginTop: 2 }}>Reason: {b.cancel_reason}</div> : null}
+                      <div style={{ marginTop: 2 }}>Charge: {fmtAmt(b.cancellation_fee)}</div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </>
           ) : (
             <>
