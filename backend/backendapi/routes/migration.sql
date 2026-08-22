@@ -194,3 +194,11 @@ ALTER TABLE onspot_bookings
 --     so getBABookings()/baacceptBooking() couldn't gate new job visibility/acceptance on it.
 ALTER TABLE business_associates
   ADD COLUMN IF NOT EXISTS is_online TINYINT(1) NOT NULL DEFAULT 0;
+
+-- 20. Self-Sharing: the captain can now cancel a single passenger's booking (no-show, etc.)
+--     without cancelling the whole trip (see selfSharingController.driverCancelBooking) — a
+--     new cancelled_by value keeps it distinct from cancelTrip's 'DRIVER' (whole trip
+--     cancelled, every booking goes with it) so history/admin can tell the two apart even
+--     though the trip itself stays active in the no-show case.
+ALTER TABLE sigi_bookings
+  MODIFY COLUMN cancelled_by ENUM('NONE','USER','DRIVER','DRIVER_NO_SHOW') NOT NULL DEFAULT 'NONE';

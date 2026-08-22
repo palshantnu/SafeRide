@@ -73,6 +73,9 @@ interface SharingBooking {
   created_at?: string;
   ride_started_at?: string | null;
   ride_completed_at?: string | null;
+  cancelled_by?: string | null;
+  cancel_reason?: string | null;
+  cancellation_fee?: string | number | null;
   [key: string]: unknown;
 }
 
@@ -104,6 +107,16 @@ const fmtDateTime = (d?: string | null) =>
   d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 const fmtAmt = (v?: string | number | null) =>
   v != null && parseFloat(String(v)) > 0 ? `₹${parseFloat(String(v)).toFixed(2)}` : '—';
+
+// cancelled_by: 'USER' (passenger cancelled their own seat), 'DRIVER' (captain cancelled
+// the whole trip — every booking on it goes CANCELLED too), 'DRIVER_NO_SHOW' (captain
+// cancelled just this ONE passenger's booking, e.g. no-show — the trip itself kept going).
+const CANCELLED_BY_LABEL: Record<string, string> = {
+  USER: 'Passenger',
+  DRIVER: 'Captain (trip cancelled)',
+  DRIVER_NO_SHOW: 'Captain (no-show)',
+};
+const cancelledByLabel = (v?: string | null) => (v ? (CANCELLED_BY_LABEL[v] || v) : '—');
 
 function extractList<T>(body: unknown): T[] {
   if (Array.isArray(body)) return body as T[];
@@ -188,6 +201,13 @@ function DetailModal({ data, type, onClose }: { data: SharingTrip | SharingBooki
               <Row label="Created"     value={fmtDate(d.created_at as string)} />
               <Row label="Trip Started" value={d.ride_started_at ? fmtFull(d.ride_started_at as string) : '—'} />
               <Row label="Trip Finished" value={d.ride_completed_at ? fmtFull(d.ride_completed_at as string) : '—'} />
+              {d.status === 'CANCELLED' && (
+                <>
+                  <Row label="Cancelled By"        value={cancelledByLabel(d.cancelled_by as string)} />
+                  <Row label="Cancel Reason"        value={d.cancel_reason as string} />
+                  <Row label="Cancellation Charge"  value={fmtAmt(d.cancellation_fee as string)} />
+                </>
+              )}
             </>
           )}
         </div>
@@ -476,7 +496,14 @@ function BookingsTab() {
                       ? <span style={{ fontSize: 11, color: '#991b1b', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtDateTime(b.ride_completed_at)}</span>
                       : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
                   </td>
-                  <td style={{ padding: '11px 14px' }}><StatusBadge status={b.status} /></td>
+                  <td style={{ padding: '11px 14px' }}>
+                    <StatusBadge status={b.status} />
+                    {b.status === 'CANCELLED' && b.cancelled_by && (
+                      <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 3, whiteSpace: 'nowrap' }}>
+                        by {cancelledByLabel(b.cancelled_by)}
+                      </div>
+                    )}
+                  </td>
                   <td style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>
                     <button onClick={() => setDetail(b)} style={{ background: '#eef2ff', border: 'none', color: '#6366f1', padding: 6, borderRadius: 8, cursor: 'pointer', display: 'flex' }}>
                       <Eye size={13} />

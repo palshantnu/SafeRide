@@ -273,6 +273,7 @@ router.post('/selfsharing/trip/verify-otp',         verifyToken, selfSharingCont
 router.post('/selfsharing/trip/start',              verifyToken, selfSharingController.startTrip);
 router.post('/selfsharing/trip/complete',           verifyToken, selfSharingController.completeTrip);
 router.post('/selfsharing/trip/cancel',             verifyToken, selfSharingController.cancelTrip);
+router.post('/selfsharing/trip/cancel-booking',     verifyToken, selfSharingController.driverCancelBooking);
 
 // Admin
 router.get('/admin/selfsharing/trips',              selfSharingController.adminGetAllTrips);

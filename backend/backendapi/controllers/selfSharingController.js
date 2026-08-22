@@ -215,6 +215,7 @@ exports.getTripBookings = async (req, res) => {
                    sb.token_amount, sb.balance_amount, sb.total_fare,
                    sb.token_paid, sb.balance_paid, sb.payment_mode,
                    sb.status, sb.otp, sb.otp_verified, sb.created_at,
+                   sb.cancelled_by, sb.cancel_reason, sb.cancellation_fee,
                    u.name AS user_name, u.mobile AS user_mobile
             FROM sigi_bookings sb
             LEFT JOIN users u ON u.id = sb.user_id
@@ -508,6 +509,94 @@ exports.cancelTrip = async (req, res) => {
 
     } catch (error) {
         console.error("cancelTrip error:", error);
+        return res.status(500).json({ status: false, message: error.message });
+    }
+};
+
+// POST /selfsharing/trip/cancel-booking — captain cancels ONE passenger's booking (no-show
+// or any other reason) while the trip keeps running for everyone else. Distinct from
+// cancelTrip (whole trip + every booking cancelled) — here trip.status is untouched and
+// only this one sigi_bookings row moves to CANCELLED, freeing its seat back up.
+exports.driverCancelBooking = async (req, res) => {
+    try {
+        if (req.user.role !== "driver") {
+            return res.status(403).json({ status: false, message: "Only the assigned captain can operate this trip" });
+        }
+        const driver_id = req.user.id;
+        const { trip_id, booking_id, reason } = req.body;
+
+        if (!trip_id || !booking_id) {
+            return res.status(400).json({ status: false, message: "trip_id and booking_id are required" });
+        }
+        if (!reason || !String(reason).trim()) {
+            return res.status(400).json({ status: false, message: "reason is required" });
+        }
+
+        const trip = await findOperableTrip(trip_id, driver_id);
+        if (!trip) return res.status(404).json({ status: false, message: "Trip not found or not assigned to you" });
+        if (["COMPLETED", "CANCELLED"].includes(trip.status)) {
+            return res.status(400).json({ status: false, message: `Trip is already ${trip.status}` });
+        }
+
+        const [[booking]] = await db.execute(`
+            SELECT sb.*, st.departure_time,
+                   s.user_cancel_before48_type, s.user_cancel_before48_amount,
+                   s.user_cancel_24to48_type,   s.user_cancel_24to48_amount,
+                   s.user_cancel_0to24_type,    s.user_cancel_0to24_amount
+            FROM sigi_bookings sb
+            JOIN sigi_trips st ON st.id = sb.trip_id
+            LEFT JOIN services s ON s.id = st.service_id
+            WHERE sb.booking_id = ? AND sb.trip_id = ?
+        `, [booking_id, trip.id]);
+
+        if (!booking) return res.status(404).json({ status: false, message: "Booking not found on this trip" });
+        if (["CANCELLED", "COMPLETED", "BOARDED"].includes(booking.status)) {
+            return res.status(400).json({ status: false, message: `Cannot cancel. Booking status: ${booking.status}` });
+        }
+
+        // token is forfeited per the same window-based policy a self-cancel would use
+        // (see cancelBooking) — the passenger is the one who didn't show up; any balance
+        // they'd already paid is refunded in full since the seat was never actually used.
+        const token  = parseFloat(booking.token_amount) || 0;
+        const window = cancelWindow(booking.departure_time);
+        const charge = calcCancelCharge(
+            booking[`user_cancel_${window}_type`],
+            booking[`user_cancel_${window}_amount`],
+            token
+        );
+        const tokenRefund   = Math.max(0, Math.round((token - charge) * 100) / 100);
+        const balanceRefund = booking.balance_paid ? (parseFloat(booking.balance_amount) || 0) : 0;
+        const totalRefund   = Math.round((tokenRefund + balanceRefund) * 100) / 100;
+
+        if (totalRefund > 0) {
+            await db.execute(`UPDATE users SET wallet = wallet + ? WHERE id = ?`, [totalRefund, booking.user_id]);
+        }
+        await db.execute(
+            `UPDATE sigi_trips SET available_seats = available_seats + ?, updated_at = NOW() WHERE id = ?`,
+            [booking.seats, trip.id]
+        );
+        await db.execute(`
+            UPDATE sigi_bookings
+            SET status = 'CANCELLED', cancelled_by = 'DRIVER_NO_SHOW', cancel_reason = ?, cancellation_fee = ?, updated_at = NOW()
+            WHERE id = ?
+        `, [reason, charge, booking.id]);
+
+        await notifyUser(booking.user_id, "Booking cancelled by captain",
+            `Your seat on trip ${trip_id} was cancelled by the captain. Reason: ${reason}`,
+            { type: "SIGI_BOOKING_CANCELLED_BY_DRIVER", booking_id });
+
+        return res.json({
+            status: true,
+            message: "Passenger's booking cancelled. Trip continues for the remaining passengers.",
+            cancel_window: window,
+            reason,
+            token_paid: token.toFixed(2),
+            cancel_charge: charge.toFixed(2),
+            refunded: totalRefund.toFixed(2)
+        });
+
+    } catch (error) {
+        console.error("driverCancelBooking error:", error);
         return res.status(500).json({ status: false, message: error.message });
     }
 };
@@ -909,6 +998,7 @@ exports.myBookings = async (req, res) => {
                    sb.token_amount, sb.balance_amount, sb.total_fare,
                    sb.token_paid, sb.balance_paid, sb.payment_mode,
                    sb.status, sb.otp, sb.user_rated, sb.created_at,
+                   sb.cancelled_by, sb.cancel_reason, sb.cancellation_fee,
                    st.trip_id, st.from_city, st.to_city, st.pickup_address,
                    st.departure_time, st.status AS trip_status,
                    st.started_at AS ride_started_at, st.completed_at AS ride_completed_at,
