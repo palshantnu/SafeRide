@@ -68,7 +68,7 @@ exports.createBooking = async (req, res) => {
         const {
             service_id, sub_service_id, plan_id,
             pickup_city, pickup_date, pickup_time,
-            pickup_address, pickup_landmark,
+            pickup_address, pickup_landmark, pickup_lat, pickup_lng,
             drop_city, drop_address, drop_landmark,
             receiver_name, receiver_mobile, approx_weight, weight_type,
             packaging_material_type, loading_unloading, remarks
@@ -129,16 +129,16 @@ exports.createBooking = async (req, res) => {
             INSERT INTO parcel_bookings
                 (parcel_booking_id, user_id, service_id, sub_service_id, plan_id,
                  pickup_city, pickup_date, pickup_time,
-                 pickup_address, pickup_landmark,
+                 pickup_address, pickup_landmark, pickup_lat, pickup_lng,
                  drop_city, drop_address, drop_landmark,
                  receiver_name, receiver_mobile, approx_weight, weight_type, packaging_material_type, loading_unloading,
                  remarks, amount, actual_amount, platform_fee, access_fee, token_amount, balance_amount,
                  pickup_otp, delivery_otp, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())
         `, [
             parcel_booking_id, user_id, parseInt(service_id), sub_service_id || null, parseInt(plan_id),
             pickup_city, pickup_date, pickup_time,
-            pickup_address, pickup_landmark || null,
+            pickup_address, pickup_landmark || null, pickup_lat || null, pickup_lng || null,
             drop_city, drop_address, drop_landmark || null,
             receiver_name, receiver_mobile, parseFloat(approx_weight), weight_type || null, packaging_material_type, loading_unloading,
             remarks || null, amount, amount, platformFee, accessFee, token_amount, balance_amount,
@@ -453,15 +453,47 @@ exports.availableParcels = async (req, res) => {
         const pageNum  = Math.max(1, Number(page)  || 1);
         const offset   = (pageNum - 1) * limitNum;
 
-        const [[driver]] = await db.execute(`SELECT id, service_id, status FROM drivers WHERE id = ?`, [driver_id]);
+        const [[driver]] = await db.execute(
+            `SELECT id, service_id, sub_service_id, status, current_lat, current_lng FROM drivers WHERE id = ?`,
+            [driver_id]
+        );
         if (!driver) return res.status(404).json({ status: false, message: "Driver not found" });
+
+        let searchArea = null;
+        if (driver.sub_service_id) {
+            const [[subService]] = await db.execute(
+                `SELECT search_area FROM sub_services WHERE id = ?`,
+                [driver.sub_service_id]
+            );
+            searchArea = subService ? parseFloat(subService.search_area) : null;
+        }
+
+        // Same Haversine radius filter as Ride (driverController.getBookingRequests) —
+        // parcels without a captured pickup pin are always let through so the radius never
+        // hides bookings the app didn't send coordinates for.
+        let distanceClause = '';
+        const values = [parseInt(driver.service_id), driver_id];
+        if (searchArea > 0 && driver.current_lat && driver.current_lng) {
+            distanceClause = `
+                AND (
+                    pb.pickup_lat IS NULL OR pb.pickup_lng IS NULL
+                    OR (6371 * acos(
+                        LEAST(1.0,
+                            cos(radians(?)) * cos(radians(pb.pickup_lat)) * cos(radians(pb.pickup_lng) - radians(?)) +
+                            sin(radians(?)) * sin(radians(pb.pickup_lat))
+                        )
+                    )) <= ?
+                )
+            `;
+            values.push(driver.current_lat, driver.current_lng, driver.current_lat, searchArea);
+        }
 
         const where = `WHERE pb.status = 'pending' AND pb.driver_id IS NULL AND pb.service_id = ? AND pb.deleted_at IS NULL
             AND NOT EXISTS (
                 SELECT 1 FROM parcel_rejections pr
                 WHERE pr.parcel_id = pb.id AND pr.actor_type = 'DRIVER' AND pr.actor_id = ?
-            )`;
-        const values = [parseInt(driver.service_id), driver_id];
+            )
+            ${distanceClause}`;
 
         const [[{ total }]] = await db.execute(`SELECT COUNT(*) AS total FROM parcel_bookings pb ${where}`, values);
         const [rows] = await db.execute(`

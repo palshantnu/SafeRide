@@ -752,7 +752,6 @@ exports.getBookingRequests = async (req, res) => {
             return res.json({ status: true, message: "Incoming booking requests", data: [] });
         }
 
-        const isInCity = parseInt(driver.service_id) === 1;
         let searchArea = null;
 
         if (driver.sub_service_id) {
@@ -770,20 +769,22 @@ exports.getBookingRequests = async (req, res) => {
         let distanceClause = '';
         const queryParams = [driver.service_id, driver.sub_service_id, driver_id];
 
-        // Haversine distance filter — pickup lat/lng is only ever captured for In-City
-        // bookings (bookingController.createBookingRequest requires it only when
-        // service_id === 1); every other service's b.start_lat/start_lng is NULL, which
-        // would make this comparison false and silently hide all their requests. So this
-        // only applies to In-City, where a proximity radius actually makes sense and the
-        // data exists.
-        if (isInCity && searchArea > 0 && driver.current_lat && driver.current_lng) {
+        // Haversine distance filter — applies to every service, not just In-City. Older
+        // bookings (or services whose booking screen doesn't capture a pickup pin) may
+        // still have b.start_lat/start_lng NULL, so those are always let through rather
+        // than being silently hidden — the radius only kicks in once a booking actually
+        // carries coordinates.
+        if (searchArea > 0 && driver.current_lat && driver.current_lng) {
             distanceClause = `
-                AND (6371 * acos(
-                    LEAST(1.0,
-                        cos(radians(?)) * cos(radians(b.start_lat)) * cos(radians(b.start_lng) - radians(?)) +
-                        sin(radians(?)) * sin(radians(b.start_lat))
-                    )
-                )) <= ?
+                AND (
+                    b.start_lat IS NULL OR b.start_lng IS NULL
+                    OR (6371 * acos(
+                        LEAST(1.0,
+                            cos(radians(?)) * cos(radians(b.start_lat)) * cos(radians(b.start_lng) - radians(?)) +
+                            sin(radians(?)) * sin(radians(b.start_lat))
+                        )
+                    )) <= ?
+                )
             `;
             queryParams.push(driver.current_lat, driver.current_lng, driver.current_lat, searchArea);
         }

@@ -202,3 +202,19 @@ ALTER TABLE business_associates
 --     though the trip itself stays active in the no-show case.
 ALTER TABLE sigi_bookings
   MODIFY COLUMN cancelled_by ENUM('NONE','USER','DRIVER','DRIVER_NO_SHOW') NOT NULL DEFAULT 'NONE';
+
+-- 21. sub_services.search_area (the "Search Area (km)" radius admins set per vehicle type)
+--     only ever took effect for In-City bookings — driverController.getBookingRequests
+--     Haversine-filtered on `bookings.start_lat/start_lng`, but Parcel/On-Spot/plan-based
+--     bookings (Rental, Intercity, One Way, Driver, Logistic) never captured a pickup pin at
+--     all, so the radius silently did nothing for them even though admins could set it on any
+--     sub-service. Parcel and On-Spot need their own pickup_lat/pickup_lng columns (Ride
+--     already has bookings.start_lat/start_lng); createBooking on both now stores whatever the
+--     app sends, and availableParcels/availableBookings apply the same radius filter Ride uses.
+ALTER TABLE parcel_bookings
+  ADD COLUMN IF NOT EXISTS pickup_lat DECIMAL(10,7) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS pickup_lng DECIMAL(10,7) DEFAULT NULL;
+
+ALTER TABLE onspot_bookings
+  ADD COLUMN IF NOT EXISTS pickup_lat DECIMAL(10,7) DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS pickup_lng DECIMAL(10,7) DEFAULT NULL;

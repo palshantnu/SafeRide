@@ -68,7 +68,8 @@ exports.createBooking = async (req, res) => {
 
         const {
             service_id, sub_service_id, plan_id,
-            city, schedule_datetime, full_address, landmark, remarks
+            city, schedule_datetime, full_address, landmark, remarks,
+            pickup_lat, pickup_lng
         } = req.body;
 
         const required = { service_id, sub_service_id, plan_id, city, schedule_datetime, full_address };
@@ -128,11 +129,13 @@ exports.createBooking = async (req, res) => {
             INSERT INTO onspot_bookings
                 (booking_no, user_id, service_id, sub_service_id, plan_id,
                  city, schedule_datetime, full_address, landmark, remarks,
+                 pickup_lat, pickup_lng,
                  token_amount, balance_amount, total_amount, platform_fee, access_fee, otp, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NOW(), NOW())
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', NOW(), NOW())
         `, [
             booking_no, user_id, parseInt(service_id), parseInt(sub_service_id), parseInt(plan_id),
             city, formattedSchedule, full_address, landmark || null, remarks || null,
+            pickup_lat || null, pickup_lng || null,
             token_amount, balance_amount, total_amount, platformFee, accessFee, otp
         ]);
 
@@ -406,15 +409,47 @@ exports.availableBookings = async (req, res) => {
         const pageNum  = Math.max(1, Number(page)  || 1);
         const offset   = (pageNum - 1) * limitNum;
 
-        const [[driver]] = await db.execute(`SELECT id, service_id, status FROM drivers WHERE id = ?`, [driver_id]);
+        const [[driver]] = await db.execute(
+            `SELECT id, service_id, sub_service_id, status, current_lat, current_lng FROM drivers WHERE id = ?`,
+            [driver_id]
+        );
         if (!driver) return res.status(404).json({ status: false, message: "Service man not found" });
+
+        let searchArea = null;
+        if (driver.sub_service_id) {
+            const [[subService]] = await db.execute(
+                `SELECT search_area FROM sub_services WHERE id = ?`,
+                [driver.sub_service_id]
+            );
+            searchArea = subService ? parseFloat(subService.search_area) : null;
+        }
+
+        // Same Haversine radius filter as Ride (driverController.getBookingRequests) —
+        // bookings without a captured pickup pin are always let through so the radius never
+        // hides bookings the app didn't send coordinates for.
+        let distanceClause = '';
+        const values = [parseInt(driver.service_id), driver_id];
+        if (searchArea > 0 && driver.current_lat && driver.current_lng) {
+            distanceClause = `
+                AND (
+                    ob.pickup_lat IS NULL OR ob.pickup_lng IS NULL
+                    OR (6371 * acos(
+                        LEAST(1.0,
+                            cos(radians(?)) * cos(radians(ob.pickup_lat)) * cos(radians(ob.pickup_lng) - radians(?)) +
+                            sin(radians(?)) * sin(radians(ob.pickup_lat))
+                        )
+                    )) <= ?
+                )
+            `;
+            values.push(driver.current_lat, driver.current_lng, driver.current_lat, searchArea);
+        }
 
         const where = `WHERE ob.status = 'PENDING' AND ob.driver_id IS NULL AND ob.service_id = ?
             AND NOT EXISTS (
                 SELECT 1 FROM onspot_rejections orj
                 WHERE orj.booking_id = ob.id AND orj.driver_id = ?
-            )`;
-        const values = [parseInt(driver.service_id), driver_id];
+            )
+            ${distanceClause}`;
 
         const [[{ total }]] = await db.execute(`SELECT COUNT(*) AS total FROM onspot_bookings ob ${where}`, values);
         const [rows] = await db.execute(`
