@@ -752,6 +752,7 @@ exports.getBookingRequests = async (req, res) => {
             return res.json({ status: true, message: "Incoming booking requests", data: [] });
         }
 
+        const isInCity = parseInt(driver.service_id) === 1;
         let searchArea = null;
 
         if (driver.sub_service_id) {
