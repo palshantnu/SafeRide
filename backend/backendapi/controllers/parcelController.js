@@ -58,6 +58,19 @@ const PARCEL_FIELDS = `
     pb.completed_at, pb.delivered_at, pb.created_at, pb.updated_at
 `;
 
+// Captain details shown to the user — only once the token is paid (booking confirmed).
+// Aliased both ways (driver_phone / driver_mobile) since the user app reads either.
+const USER_DRIVER_FIELDS = `
+    IF(pb.paid = 1, d.full_name, NULL)        AS driver_name,
+    IF(pb.paid = 1, d.phone, NULL)            AS driver_phone,
+    IF(pb.paid = 1, d.phone, NULL)            AS driver_mobile,
+    IF(pb.paid = 1, dp.driver_profile, NULL)  AS driver_profile,
+    IF(pb.paid = 1, dp.vehicle_type, NULL)    AS vehicle_type,
+    IF(pb.paid = 1, dp.vehicle_model, NULL)   AS vehicle_model,
+    IF(pb.paid = 1, dp.vehicle_color, NULL)   AS vehicle_color,
+    IF(pb.paid = 1, dp.vehicle_number, NULL)  AS vehicle_number
+`;
+
 exports.createBooking = async (req, res) => {
     try {
         if (actorType(req) !== "USER") {
@@ -186,8 +199,11 @@ exports.myBookings = async (req, res) => {
 
         const [[{ total }]] = await db.execute(`SELECT COUNT(*) AS total FROM parcel_bookings pb ${where}`, values);
         const [rows] = await db.execute(`
-            SELECT ${PARCEL_FIELDS}, pb.pickup_otp,pb.delivery_otp
+            SELECT ${PARCEL_FIELDS}, pb.pickup_otp,pb.delivery_otp,
+                   ${USER_DRIVER_FIELDS}
             FROM parcel_bookings pb
+            LEFT JOIN drivers d          ON d.id = pb.driver_id
+            LEFT JOIN driver_profiles dp ON dp.driver_id = pb.driver_id
             ${where}
             ORDER BY pb.id DESC
             LIMIT ${limitNum} OFFSET ${offset}
@@ -414,11 +430,12 @@ exports.currentBooking = async (req, res) => {
         const [rows] = await db.execute(`
             SELECT ${PARCEL_FIELDS}, pb.pickup_otp, pb.delivery_otp,
                    s.title AS service_name, p.plan_name,
-                   d.full_name AS driver_name, d.phone AS driver_phone
+                   ${USER_DRIVER_FIELDS}
             FROM parcel_bookings pb
             LEFT JOIN services s ON s.id = pb.service_id
             LEFT JOIN plans p    ON p.id = pb.plan_id
             LEFT JOIN drivers d  ON d.id = pb.driver_id
+            LEFT JOIN driver_profiles dp ON dp.driver_id = pb.driver_id
             WHERE pb.user_id = ?
               AND pb.deleted_at IS NULL
               AND pb.status != 'cancelled'
