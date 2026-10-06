@@ -637,7 +637,9 @@ exports.driverCancel = async (req, res) => {
 
         const booking = await findDriverBooking(booking_no, driver_id);
         if (!booking) return res.status(404).json({ status: false, message: "Booking not found or not assigned to you" });
-        if (["ARRIVED", "IN_PROGRESS", "COMPLETED", "CANCELLED"].includes(booking.status)) {
+        // The service man can cancel at any point until the job is completed
+        // (including after arriving / while the service is in progress).
+        if (["COMPLETED", "CANCELLED"].includes(booking.status)) {
             return res.status(400).json({ status: false, message: `Cannot cancel. Status: ${booking.status}` });
         }
 
