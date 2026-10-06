@@ -171,6 +171,8 @@ exports.myTrips = async (req, res) => {
                    COALESCE(SUM(sb.balance_amount * sb.balance_paid), 0) AS balance_collected,
                    COALESCE(SUM(sb.platform_fee), 0)             AS platform_fee_collected,
                    COALESCE(SUM(sb.access_fee), 0)               AS access_fee_collected,
+                   -- captain's earning: fares of the non-cancelled bookings minus the company's fees
+                   COALESCE(SUM(sb.total_fare - COALESCE(sb.platform_fee, 0) - COALESCE(sb.access_fee, 0)), 0) AS total_earning,
                    ad.full_name AS assigned_driver_name,
                    ad.phone     AS assigned_driver_mobile,
                    (SELECT ROUND(AVG(dr.rating), 1) FROM driver_reviews dr
@@ -208,13 +210,26 @@ exports.getTripBookings = async (req, res) => {
         const { trip_id }  = req.params;
 
         const [[trip]] = await db.execute(`
-            SELECT id FROM sigi_trips
+            SELECT id, trip_id, from_city, to_city, pickup_address, departure_time,
+                   total_seats, available_seats, token_fare, full_fare, status,
+                   started_at, completed_at
+            FROM sigi_trips
             WHERE trip_id = ?
               AND ( (creator_id = ? AND creator_type = ?)
                  OR (creator_type = 'BA' AND assigned_driver_id = ?) )
         `, [trip_id, uid, role, uid]);
 
         if (!trip) return res.status(404).json({ status: false, message: "Trip not found" });
+
+        // totals over the non-cancelled bookings (same definitions as myTrips)
+        const [[totals]] = await db.execute(`
+            SELECT COUNT(sb.id) AS total_bookings,
+                   COALESCE(SUM(sb.seats), 0) AS booked_seats,
+                   COALESCE(SUM(sb.total_fare - COALESCE(sb.platform_fee, 0) - COALESCE(sb.access_fee, 0)), 0) AS total_earning
+            FROM sigi_bookings sb
+            WHERE sb.trip_id = ? AND sb.status != 'CANCELLED'
+        `, [trip.id]);
+        Object.assign(trip, totals);
 
         const [rows] = await db.execute(`
             SELECT sb.id, sb.booking_id, sb.seats,
@@ -245,7 +260,7 @@ exports.getTripBookings = async (req, res) => {
             rows.forEach(r => { r.passengers = byBooking[r.id] || []; });
         }
 
-        return res.json({ status: true, message: "Trip bookings fetched", data: rows });
+        return res.json({ status: true, message: "Trip bookings fetched", trip, data: rows });
 
     } catch (error) {
         console.error("getTripBookings error:", error);
