@@ -190,10 +190,25 @@ exports.myTrips = async (req, res) => {
             LIMIT ${limitNum} OFFSET ${offset}
         `, values);
 
+        // Overall history totals (not just this page). Rides and bookings count everything,
+        // cancelled ones included — but earning only comes from COMPLETED trips: their
+        // non-cancelled booking fares minus the company's fees.
+        const ownershipValues = creator_type === "DRIVER" ? [creator_id, creator_id] : [creator_id];
+        const [[summary]] = await db.execute(`
+            SELECT COUNT(DISTINCT t.id) AS total_rides,
+                   COUNT(sb.id)         AS total_bookings,
+                   COALESCE(SUM(IF(t.status = 'COMPLETED' AND sb.status != 'CANCELLED',
+                       sb.total_fare - COALESCE(sb.platform_fee, 0) - COALESCE(sb.access_fee, 0), 0)), 0) AS total_earning
+            FROM sigi_trips t
+            LEFT JOIN sigi_bookings sb ON sb.trip_id = t.id
+            WHERE ${ownership}
+        `, ownershipValues);
+
         return res.json({
             status: true,
             message: "Trips fetched successfully",
             pagination: { total, page: pageNum, limit: limitNum, total_pages: Math.ceil(total / limitNum) },
+            summary,
             data: rows
         });
 
