@@ -91,12 +91,15 @@ const notifyAudience = async (audience, title, body, data = {}) => {
 
 // Broadcast a "new booking" to every driver registered for the service (and sub-service,
 // if given). Best-effort — never throws. Returns how many drivers were pinged.
-const notifyDriversByService = async (serviceId, subServiceId, title, body, data = {}) => {
+// `opts.online` (true/false) narrows it to on-duty / off-duty drivers; omit for everyone.
+const notifyDriversByService = async (serviceId, subServiceId, title, body, data = {}, opts = {}) => {
     if (!serviceId) return 0;
     try {
         let sql = `SELECT fcm_token FROM drivers WHERE service_id = ? AND fcm_token IS NOT NULL AND fcm_token <> ''`;
         const params = [serviceId];
         if (subServiceId) { sql += ` AND (sub_service_id = ? OR sub_service_id IS NULL)`; params.push(subServiceId); }
+        if (opts.online === true)  sql += ` AND is_online = 1`;
+        if (opts.online === false) sql += ` AND (is_online = 0 OR is_online IS NULL)`;
         const [rows] = await db.query(sql, params);
         await Promise.all(rows.map(r => sendPush(r.fcm_token, title, body, data)));
         return rows.length;

@@ -139,8 +139,16 @@ exports.createBooking = async (req, res) => {
             token_amount, balance_amount, total_amount, platformFee, accessFee, otp
         ]);
 
+        // On-duty service men get the normal new-booking push (rings in the app).
         await notifyDriversByService(parseInt(service_id), parseInt(sub_service_id), "New on-spot booking",
-            `New on-spot booking in ${city}`, { type: "NEW_ONSPOT_BOOKING", booking_no });
+            `New on-spot booking in ${city}`, { type: "NEW_ONSPOT_BOOKING", booking_no }, { online: true });
+
+        // Off-duty service men only get a plain reminder to come online. The type deliberately
+        // has no "BOOKING" in it, so the captain app shows the notification without ringing or
+        // starting the new-booking flow.
+        await notifyDriversByService(parseInt(service_id), parseInt(sub_service_id), "You are off duty",
+            `A new on-spot request is available in ${city}. Go online to accept it.`,
+            { type: "GO_ONLINE_REMINDER" }, { online: false });
 
         return res.json({
             status: true,
