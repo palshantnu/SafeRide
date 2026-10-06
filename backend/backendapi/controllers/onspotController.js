@@ -290,7 +290,8 @@ exports.cancelBooking = async (req, res) => {
             [booking_no, user_id]
         );
         if (!booking) return res.status(404).json({ status: false, message: "Booking not found" });
-        if (["ARRIVED", "IN_PROGRESS", "COMPLETED", "CANCELLED"].includes(booking.status)) {
+        // the user can cancel until the service actually starts (the app shows Cancel on ARRIVED too)
+        if (["IN_PROGRESS", "COMPLETED", "CANCELLED"].includes(booking.status)) {
             return res.status(400).json({ status: false, message: `Cannot cancel. Status: ${booking.status}` });
         }
 
