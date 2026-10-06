@@ -172,7 +172,13 @@ exports.myTrips = async (req, res) => {
                    COALESCE(SUM(sb.platform_fee), 0)             AS platform_fee_collected,
                    COALESCE(SUM(sb.access_fee), 0)               AS access_fee_collected,
                    ad.full_name AS assigned_driver_name,
-                   ad.phone     AS assigned_driver_mobile
+                   ad.phone     AS assigned_driver_mobile,
+                   (SELECT ROUND(AVG(dr.rating), 1) FROM driver_reviews dr
+                      JOIN sigi_bookings rb ON rb.id = dr.booking_id
+                     WHERE dr.booking_type = 'sigi' AND rb.trip_id = t.id) AS avg_rating,
+                   (SELECT COUNT(*) FROM driver_reviews dr
+                      JOIN sigi_bookings rb ON rb.id = dr.booking_id
+                     WHERE dr.booking_type = 'sigi' AND rb.trip_id = t.id) AS rating_count
             FROM sigi_trips t
             LEFT JOIN sigi_bookings sb ON sb.trip_id = t.id AND sb.status != 'CANCELLED'
             LEFT JOIN drivers ad       ON ad.id = t.assigned_driver_id
@@ -216,9 +222,11 @@ exports.getTripBookings = async (req, res) => {
                    sb.token_paid, sb.balance_paid, sb.payment_mode,
                    sb.status, sb.otp, sb.otp_verified, sb.created_at,
                    sb.cancelled_by, sb.cancel_reason, sb.cancellation_fee,
-                   u.name AS user_name, u.mobile AS user_mobile
+                   u.name AS user_name, u.mobile AS user_mobile,
+                   dr.rating, dr.review
             FROM sigi_bookings sb
             LEFT JOIN users u ON u.id = sb.user_id
+            LEFT JOIN driver_reviews dr ON dr.booking_type = 'sigi' AND dr.booking_id = sb.id
             WHERE sb.trip_id = ?
             ORDER BY sb.id ASC
         `, [trip.id]);
@@ -1009,11 +1017,13 @@ exports.myBookings = async (req, res) => {
                    CASE st.creator_type
                        WHEN 'DRIVER' THEN d.phone
                        WHEN 'BA'     THEN ba.ba_mobile
-                   END AS creator_mobile
+                   END AS creator_mobile,
+                   dr.rating AS user_rating, dr.review AS user_review
             FROM sigi_bookings sb
             JOIN sigi_trips st ON st.id = sb.trip_id
             LEFT JOIN drivers d              ON st.creator_type = 'DRIVER' AND d.id = st.creator_id
             LEFT JOIN business_associates ba ON st.creator_type = 'BA'     AND ba.id = st.creator_id
+            LEFT JOIN driver_reviews dr      ON dr.booking_type = 'sigi'   AND dr.booking_id = sb.id
             ${where}
             ORDER BY sb.id DESC
             LIMIT ${limitNum} OFFSET ${offset}
