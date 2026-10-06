@@ -332,8 +332,11 @@ exports.getBookingHistory = async (req, res) => {
             // from the driver's wallet on completion; a cancellation fee is deducted from whoever
             // cancelled. Plan-based commissions are computed/displayed but never credited to any
             // wallet in the current backend — surfaced as `wallet_impact: null` rather than guessed.
+            // A USER cancelling a non In-City booking is not charged from the wallet — that fee is
+            // only recorded (cancellation_fee) for admin to settle manually.
+            const feeFromWallet = isInCity || b.cancelled_by !== 'USER';
             let wallet_impact = null;
-            if (isCancelled && parseFloat(b.cancellation_fee || 0) > 0) {
+            if (isCancelled && parseFloat(b.cancellation_fee || 0) > 0 && feeFromWallet) {
                 wallet_impact = {
                     amount: parseFloat(b.cancellation_fee),
                     target: b.cancelled_by === 'DRIVER' ? 'CAPTAIN' : b.cancelled_by === 'USER' ? 'USER' : null,

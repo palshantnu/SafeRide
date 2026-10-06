@@ -1563,10 +1563,23 @@ exports.cancelBooking = async (req, res) => {
                 cancellationFee = Math.round(cancellationFee * 100) / 100;
                 feeAppliedOn    = prefix;
 
+                // A USER cancelling a non In-City booking is NOT charged from the wallet:
+                // the fee is only recorded on the booking (cancellation_fee) so admin can
+                // see it and settle it manually. In-City (service_id 1) and captain/BA
+                // cancellations keep deducting from the wallet as before.
+                const isInCity      = parseInt(booking.service_id) === 1;
+                const recordFeeOnly = role === 'USER' && !isInCity;
+
                 // deduct from the canceller's wallet — never let it go negative
-                if (cancellationFee > 0) {
-                    const table   = role === 'DRIVER' ? 'drivers' : 'users';
-                    const walletOwnerId = role === 'DRIVER' ? booking.driver_id : booking.user_id;
+                if (cancellationFee > 0 && !recordFeeOnly) {
+                    // the fee comes out of whoever cancelled: captain, Business Associate or user
+                    const walletOwner = {
+                        DRIVER:             { table: 'drivers',             id: booking.driver_id },
+                        BUSINESS_ASSOCIATE: { table: 'business_associates', id: booking.bussinessassociate_id },
+                        USER:               { table: 'users',               id: booking.user_id },
+                    }[role];
+                    const table         = walletOwner.table;
+                    const walletOwnerId = walletOwner.id;
                     const [[owner]] = await db.query(`SELECT wallet FROM ${table} WHERE id = ?`, [walletOwnerId]);
                     // const balance = parseFloat(owner?.wallet || 0);
                     // walletDeducted = Math.min(cancellationFee, Math.max(0, balance));
@@ -1636,6 +1649,10 @@ await db.query(
                 const feeMsg = `₹${walletDeducted} cancellation fee deducted from your wallet for booking ${booking.booking_id}`;
                 if (role === 'DRIVER') {
                     await notifyDriver(booking.driver_id, "Cancellation fee deducted", feeMsg,
+                        { type: "CANCELLATION_FEE", booking_id: booking.booking_id, amount: walletDeducted }
+                    );
+                } else if (role === 'BUSINESS_ASSOCIATE') {
+                    await notifyBA(booking.bussinessassociate_id, "Cancellation fee deducted", feeMsg,
                         { type: "CANCELLATION_FEE", booking_id: booking.booking_id, amount: walletDeducted }
                     );
                 } else {

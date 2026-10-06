@@ -395,16 +395,15 @@ exports.cancelBooking = async (req, res) => {
             return res.status(400).json({ status: false, message: `Cannot cancel. Status: ${booking.status}` });
         }
 
-        // charge only applies once a captain has accepted (driver_id set) — free to cancel before that
+        // charge only applies once a captain has accepted (driver_id set) — free to cancel before that.
+        // The fee is only recorded on the booking (cancellation_fee) for admin to see and settle
+        // manually — it is NOT deducted from the user's wallet.
         let cancellationFee = 0;
         if (booking.driver_id) {
             const subServiceId = booking.sub_service_id || booking.plan_sub_service_id;
             cancellationFee = await computeParcelCancelFee(
                 subServiceId, 'user', hoursUntil(booking.schedule_at), booking.amount
             );
-            if (cancellationFee > 0) {
-                await db.execute(`UPDATE users SET wallet = wallet - ? WHERE id = ?`, [cancellationFee, user_id]);
-            }
         }
 
         await db.execute(`
