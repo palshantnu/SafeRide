@@ -200,10 +200,12 @@ exports.myBookings = async (req, res) => {
         const [[{ total }]] = await db.execute(`SELECT COUNT(*) AS total FROM parcel_bookings pb ${where}`, values);
         const [rows] = await db.execute(`
             SELECT ${PARCEL_FIELDS}, pb.pickup_otp,pb.delivery_otp,
-                   ${USER_DRIVER_FIELDS}
+                   ${USER_DRIVER_FIELDS},
+                   dr.rating AS user_rating, dr.review AS user_review
             FROM parcel_bookings pb
             LEFT JOIN drivers d          ON d.id = pb.driver_id
             LEFT JOIN driver_profiles dp ON dp.driver_id = pb.driver_id
+            LEFT JOIN driver_reviews dr  ON dr.booking_type = 'parcel' AND dr.booking_id = pb.id
             ${where}
             ORDER BY pb.id DESC
             LIMIT ${limitNum} OFFSET ${offset}
