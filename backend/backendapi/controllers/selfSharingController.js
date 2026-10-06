@@ -481,17 +481,13 @@ exports.cancelTrip = async (req, res) => {
             [trip.id]
         );
 
-        // refund full token to every affected user (driver's fault), and attribute each
-        // booking its proportional share of the driver's penalty (by fare weight) so the
-        // per-row shares sum back to `penalty` — lets the admin Accounts page show
-        // "cancelled by DRIVER" + a charge amount against each affected booking.
-        let totalRefunded = 0;
+        // No automatic refund to the affected users — whatever was paid stays paid and admin
+        // settles refunds manually. Each booking is still attributed its proportional share
+        // of the driver's penalty (by fare weight) so the per-row shares sum back to
+        // `penalty` — lets the admin Accounts page show "cancelled by DRIVER" + a charge
+        // amount against each affected booking.
+        const totalRefunded = 0;
         for (const b of activeBookings) {
-            const token = parseFloat(b.token_amount) || 0;
-            if (token > 0) {
-                await db.execute(`UPDATE users SET wallet = wallet + ? WHERE id = ?`, [token, b.user_id]);
-                totalRefunded += token;
-            }
             const bookingFare  = parseFloat(b.total_fare) || 0;
             const bookingShare = tripValue > 0 ? Math.round((penalty * bookingFare / tripValue) * 100) / 100 : 0;
             await db.execute(`
@@ -508,7 +504,7 @@ exports.cancelTrip = async (req, res) => {
 
         return res.json({
             status: true,
-            message: "Trip cancelled. All bookings cancelled and users refunded.",
+            message: "Trip cancelled. All bookings cancelled.",
             cancel_window: window,
             bookings_refunded: activeBookings.length,
             total_refunded: totalRefunded.toFixed(2),
@@ -562,9 +558,9 @@ exports.driverCancelBooking = async (req, res) => {
             return res.status(400).json({ status: false, message: `Cannot cancel. Booking status: ${booking.status}` });
         }
 
-        // token is forfeited per the same window-based policy a self-cancel would use
-        // (see cancelBooking) — the passenger is the one who didn't show up; any balance
-        // they'd already paid is refunded in full since the seat was never actually used.
+        // The charge follows the same window-based policy a self-cancel would use (see
+        // cancelBooking) and is recorded on the booking. No automatic refund of token or
+        // balance — whatever was paid stays paid and admin settles refunds manually.
         const token  = parseFloat(booking.token_amount) || 0;
         const window = cancelWindow(booking.departure_time);
         const charge = calcCancelCharge(
@@ -572,13 +568,8 @@ exports.driverCancelBooking = async (req, res) => {
             booking[`user_cancel_${window}_amount`],
             token
         );
-        const tokenRefund   = Math.max(0, Math.round((token - charge) * 100) / 100);
-        const balanceRefund = booking.balance_paid ? (parseFloat(booking.balance_amount) || 0) : 0;
-        const totalRefund   = Math.round((tokenRefund + balanceRefund) * 100) / 100;
+        const totalRefund = 0;
 
-        if (totalRefund > 0) {
-            await db.execute(`UPDATE users SET wallet = wallet + ? WHERE id = ?`, [totalRefund, booking.user_id]);
-        }
         await db.execute(
             `UPDATE sigi_trips SET available_seats = available_seats + ?, updated_at = NOW() WHERE id = ?`,
             [booking.seats, trip.id]
@@ -1092,14 +1083,10 @@ exports.cancelBooking = async (req, res) => {
             booking[`user_cancel_${window}_amount`],
             token                                 
         );
-        const refund = Math.max(0, Math.round((token - charge) * 100) / 100);
+        // No automatic refund: whatever was paid stays paid. The charge is only recorded on
+        // the booking (cancellation_fee) and admin settles any refund manually.
+        const refund = 0;
 
-        if (refund > 0) {
-            await db.execute(
-                `UPDATE users SET wallet = wallet + ? WHERE id = ?`,
-                [refund, user_id]
-            );
-        }
         await db.execute(
             `UPDATE sigi_trips SET available_seats = available_seats + ?, updated_at = NOW() WHERE id = ?`,
             [booking.seats, booking.trip_id]
