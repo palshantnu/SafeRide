@@ -723,11 +723,15 @@ exports.getAvailableTrips = async (req, res) => {
                     WHEN 'DRIVER' THEN d.phone
                     WHEN 'BA'     THEN ba.ba_mobile
                 END AS creator_mobile,
+                dp.vehicle_type, dp.vehicle_model, dp.vehicle_color, dp.vehicle_number,
                 ss.access_fee, ss.access_fee_type, ss.platform_fee
             FROM sigi_trips t
             LEFT JOIN services s             ON s.id  = t.service_id
             LEFT JOIN drivers d              ON t.creator_type = 'DRIVER' AND d.id = t.creator_id
             LEFT JOIN business_associates ba ON t.creator_type = 'BA'     AND ba.id = t.creator_id
+            -- vehicle of the captain who actually drives the trip: the creating driver,
+            -- or the driver a BA has assigned (none until the BA assigns one)
+            LEFT JOIN driver_profiles dp     ON dp.driver_id = IF(t.creator_type = 'DRIVER', t.creator_id, t.assigned_driver_id)
             -- this service's one designated fee sub_service (not tied to any driver —
             -- see selfSharingController.createBooking for the matching lookup rule)
             LEFT JOIN (
@@ -1018,11 +1022,13 @@ exports.myBookings = async (req, res) => {
                        WHEN 'DRIVER' THEN d.phone
                        WHEN 'BA'     THEN ba.ba_mobile
                    END AS creator_mobile,
+                   dp.vehicle_type, dp.vehicle_model, dp.vehicle_color, dp.vehicle_number,
                    dr.rating AS user_rating, dr.review AS user_review
             FROM sigi_bookings sb
             JOIN sigi_trips st ON st.id = sb.trip_id
             LEFT JOIN drivers d              ON st.creator_type = 'DRIVER' AND d.id = st.creator_id
             LEFT JOIN business_associates ba ON st.creator_type = 'BA'     AND ba.id = st.creator_id
+            LEFT JOIN driver_profiles dp     ON dp.driver_id = IF(st.creator_type = 'DRIVER', st.creator_id, st.assigned_driver_id)
             LEFT JOIN driver_reviews dr      ON dr.booking_type = 'sigi'   AND dr.booking_id = sb.id
             ${where}
             ORDER BY sb.id DESC
