@@ -338,12 +338,14 @@ exports.myBookings = async (req, res) => {
         const [rows] = await db.execute(`
             SELECT ${ONSPOT_FIELDS}, ob.otp,
                    s.title AS service_name, p.plan_name,
-                   d.full_name AS driver_name, d.phone AS driver_phone ,dP.driver_profile
+                   d.full_name AS driver_name, d.phone AS driver_phone ,dP.driver_profile,
+                   dr.rating AS user_rating, dr.review AS user_review
             FROM onspot_bookings ob
             LEFT JOIN services s ON s.id = ob.service_id
             LEFT JOIN plans p    ON p.id = ob.plan_id
             LEFT JOIN drivers d  ON d.id = ob.driver_id
             LEFT JOIN driver_profiles dP  ON dP.driver_id = d.id 
+            LEFT JOIN driver_reviews dr   ON dr.booking_type = 'onspot' AND dr.booking_id = ob.id
             ${where}
             ORDER BY ob.id DESC
             LIMIT ${limitNum} OFFSET ${offset}
@@ -716,11 +718,13 @@ exports.myJobs = async (req, res) => {
         const [rows] = await db.execute(`
             SELECT ${ONSPOT_FIELDS}, s.title AS service_name, p.plan_name,
                    u.name AS user_name, u.mobile AS user_mobile,
-                   COALESCE(p.plan_captain_commission, 0) AS driver_amount
+                   COALESCE(p.plan_captain_commission, 0) AS driver_amount,
+                   dr.rating, dr.review
             FROM onspot_bookings ob
             LEFT JOIN services s ON s.id = ob.service_id
             LEFT JOIN plans p    ON p.id = ob.plan_id
             LEFT JOIN users u    ON u.id = ob.user_id
+            LEFT JOIN driver_reviews dr ON dr.booking_type = 'onspot' AND dr.booking_id = ob.id
             ${where}
             ORDER BY ob.id DESC
             LIMIT ${limitNum} OFFSET ${offset}
