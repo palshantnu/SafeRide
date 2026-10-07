@@ -635,8 +635,12 @@ exports.userCurrentBooking = async (req, res) => {
                 ss.access_fee      AS sub_access_fee,
                 ss.access_fee_type AS sub_access_fee_type,
                 ss.platform_fee    AS sub_platform_fee,
-                d.full_name AS driver_name,
-                d.phone AS driver_mobile,
+                -- BA flow only: once the token is paid but before the BA has assigned a
+                -- driver, the user's contact is the Business Associate. After assignment
+                -- it is the driver. Direct-captain bookings have no BA, so nothing changes.
+                COALESCE(d.full_name, IF(b.token_paid = 1, ba.ba_name, NULL))   AS driver_name,
+                COALESCE(d.phone,     IF(b.token_paid = 1, ba.ba_mobile, NULL)) AS driver_mobile,
+                IF(b.driver_id IS NULL AND ba.id IS NOT NULL, 'BA', 'DRIVER')   AS contact_type,
                 d.current_lat AS driver_current_lat,
                 d.current_lng AS driver_current_lng,
                 d.location_updated_at AS driver_location_updated_at,
@@ -656,6 +660,8 @@ exports.userCurrentBooking = async (req, res) => {
                 ON d.id = b.driver_id
             LEFT JOIN driver_profiles dp
                 ON dp.driver_id = b.driver_id
+            LEFT JOIN business_associates ba
+                ON ba.id = b.bussinessassociate_id
             LEFT JOIN services s
                 ON s.id = b.service_id
 

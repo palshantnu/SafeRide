@@ -1038,14 +1038,16 @@ exports.myBookings = async (req, res) => {
                    st.trip_id, st.from_city, st.to_city, st.pickup_address,
                    st.departure_time, st.status AS trip_status,
                    st.started_at AS ride_started_at, st.completed_at AS ride_completed_at,
+                   -- BA trip: the contact is the BA until it assigns a captain, then the captain
                    CASE st.creator_type
                        WHEN 'DRIVER' THEN d.full_name
-                       WHEN 'BA'     THEN ba.ba_name
+                       WHEN 'BA'     THEN COALESCE(ad.full_name, ba.ba_name)
                    END AS creator_name,
                    CASE st.creator_type
                        WHEN 'DRIVER' THEN d.phone
-                       WHEN 'BA'     THEN ba.ba_mobile
+                       WHEN 'BA'     THEN COALESCE(ad.phone, ba.ba_mobile)
                    END AS creator_mobile,
+                   IF(st.creator_type = 'BA' AND ad.id IS NULL, 'BA', 'DRIVER') AS contact_type,
                    dp.vehicle_type, dp.vehicle_model, dp.vehicle_color, dp.vehicle_number,
                    (SELECT sv.title FROM services sv WHERE sv.id = st.service_id) AS service_name,
                    dr.rating AS user_rating, dr.review AS user_review
@@ -1053,6 +1055,7 @@ exports.myBookings = async (req, res) => {
             JOIN sigi_trips st ON st.id = sb.trip_id
             LEFT JOIN drivers d              ON st.creator_type = 'DRIVER' AND d.id = st.creator_id
             LEFT JOIN business_associates ba ON st.creator_type = 'BA'     AND ba.id = st.creator_id
+            LEFT JOIN drivers ad             ON st.creator_type = 'BA'     AND ad.id = st.assigned_driver_id
             LEFT JOIN driver_profiles dp     ON dp.driver_id = IF(st.creator_type = 'DRIVER', st.creator_id, st.assigned_driver_id)
             LEFT JOIN driver_reviews dr      ON dr.booking_type = 'sigi'   AND dr.booking_id = sb.id
             ${where}
