@@ -202,8 +202,10 @@ exports.myBookings = async (req, res) => {
         const [rows] = await db.execute(`
             SELECT ${PARCEL_FIELDS}, pb.pickup_otp,pb.delivery_otp,
                    ${USER_DRIVER_FIELDS},
+                   s.title AS service_name,
                    dr.rating AS user_rating, dr.review AS user_review
             FROM parcel_bookings pb
+            LEFT JOIN services s         ON s.id = pb.service_id
             LEFT JOIN drivers d          ON d.id = pb.driver_id
             LEFT JOIN driver_profiles dp ON dp.driver_id = pb.driver_id
             LEFT JOIN driver_reviews dr  ON dr.booking_type = 'parcel' AND dr.booking_id = pb.id
@@ -726,10 +728,12 @@ exports.myDeliveries = async (req, res) => {
         const [rows] = await db.execute(`
             SELECT ${PARCEL_FIELDS}, u.name AS user_name, u.mobile AS user_mobile,
                    COALESCE(p.plan_captain_commission, 0) AS driver_amount,
+                   s.title AS service_name,
                    dr.rating, dr.review
             FROM parcel_bookings pb
             LEFT JOIN users u ON u.id = pb.user_id
             LEFT JOIN plans p ON p.id = pb.plan_id
+            LEFT JOIN services s ON s.id = pb.service_id
             LEFT JOIN driver_reviews dr ON dr.booking_type = 'parcel' AND dr.booking_id = pb.id
             ${where}
             ORDER BY pb.id DESC
@@ -950,10 +954,12 @@ exports.baParcels = async (req, res) => {
         const [rows] = await db.execute(`
             SELECT ${PARCEL_FIELDS}, u.name AS user_name, u.mobile AS user_mobile,
                    d.full_name AS driver_name, d.phone AS driver_phone,
+                   s.title AS service_name,
                    dr.rating, dr.review
             FROM parcel_bookings pb
             LEFT JOIN users u   ON u.id = pb.user_id
             LEFT JOIN drivers d ON d.id = pb.driver_id
+            LEFT JOIN services s ON s.id = pb.service_id
             LEFT JOIN driver_reviews dr ON dr.booking_type = 'parcel' AND dr.booking_id = pb.id
             ${where}
             ORDER BY pb.id DESC

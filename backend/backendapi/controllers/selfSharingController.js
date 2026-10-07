@@ -175,6 +175,7 @@ exports.myTrips = async (req, res) => {
                    COALESCE(SUM(sb.total_fare - COALESCE(sb.platform_fee, 0) - COALESCE(sb.access_fee, 0)), 0) AS total_earning,
                    ad.full_name AS assigned_driver_name,
                    ad.phone     AS assigned_driver_mobile,
+                   (SELECT sv.title FROM services sv WHERE sv.id = t.service_id) AS service_name,
                    (SELECT ROUND(AVG(dr.rating), 1) FROM driver_reviews dr
                       JOIN sigi_bookings rb ON rb.id = dr.booking_id
                      WHERE dr.booking_type = 'sigi' AND rb.trip_id = t.id) AS avg_rating,
@@ -1046,6 +1047,7 @@ exports.myBookings = async (req, res) => {
                        WHEN 'BA'     THEN ba.ba_mobile
                    END AS creator_mobile,
                    dp.vehicle_type, dp.vehicle_model, dp.vehicle_color, dp.vehicle_number,
+                   (SELECT sv.title FROM services sv WHERE sv.id = st.service_id) AS service_name,
                    dr.rating AS user_rating, dr.review AS user_review
             FROM sigi_bookings sb
             JOIN sigi_trips st ON st.id = sb.trip_id
