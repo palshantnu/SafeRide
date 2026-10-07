@@ -776,8 +776,15 @@ exports.driverCancel = async (req, res) => {
         const cancellationFee = await computeParcelCancelFee(
             subServiceId, 'driver', hoursUntil(schedule_at), booking.amount
         );
+        // A captain working under a BA (the BA took the parcel and assigned them) is not
+        // charged personally — the fee comes out of the BA's wallet.
         if (cancellationFee > 0) {
-            await db.execute(`UPDATE drivers SET wallet = wallet - ? WHERE id = ?`, [cancellationFee, driver_id]);
+            if (booking.bussinessassociate_id) {
+                await db.execute(`UPDATE business_associates SET wallet = wallet - ? WHERE id = ?`,
+                    [cancellationFee, booking.bussinessassociate_id]);
+            } else {
+                await db.execute(`UPDATE drivers SET wallet = wallet - ? WHERE id = ?`, [cancellationFee, driver_id]);
+            }
         }
 
         await db.execute(`

@@ -1515,6 +1515,8 @@ exports.cancelBooking = async (req, res) => {
         let cancellationFee = 0;
         let feeAppliedOn    = null;
         let walletDeducted  = 0;
+        // captain/BA fee is paid from the BA's wallet whenever the booking belongs to a BA
+        const feeOnBA = role === 'BUSINESS_ASSOCIATE' || (role === 'DRIVER' && !!booking.bussinessassociate_id);
 
         if (isAccepted && booking.sub_service_id) {
             const [[ss]] = await db.query(
@@ -1572,9 +1574,13 @@ exports.cancelBooking = async (req, res) => {
 
                 // deduct from the canceller's wallet — never let it go negative
                 if (cancellationFee > 0 && !recordFeeOnly) {
-                    // the fee comes out of whoever cancelled: captain, Business Associate or user
+                    // the fee comes out of whoever cancelled: captain, Business Associate or user.
+                    // A captain working under a BA (the BA took the booking and assigned them)
+                    // is not charged personally — the BA's wallet pays.
                     const walletOwner = {
-                        DRIVER:             { table: 'drivers',             id: booking.driver_id },
+                        DRIVER:             feeOnBA
+                            ? { table: 'business_associates', id: booking.bussinessassociate_id }
+                            : { table: 'drivers',             id: booking.driver_id },
                         BUSINESS_ASSOCIATE: { table: 'business_associates', id: booking.bussinessassociate_id },
                         USER:               { table: 'users',               id: booking.user_id },
                     }[role];
@@ -1647,12 +1653,12 @@ await db.query(
         if (walletDeducted > 0) {
             try {
                 const feeMsg = `₹${walletDeducted} cancellation fee deducted from your wallet for booking ${booking.booking_id}`;
-                if (role === 'DRIVER') {
-                    await notifyDriver(booking.driver_id, "Cancellation fee deducted", feeMsg,
+                if (feeOnBA) {
+                    await notifyBA(booking.bussinessassociate_id, "Cancellation fee deducted", feeMsg,
                         { type: "CANCELLATION_FEE", booking_id: booking.booking_id, amount: walletDeducted }
                     );
-                } else if (role === 'BUSINESS_ASSOCIATE') {
-                    await notifyBA(booking.bussinessassociate_id, "Cancellation fee deducted", feeMsg,
+                } else if (role === 'DRIVER') {
+                    await notifyDriver(booking.driver_id, "Cancellation fee deducted", feeMsg,
                         { type: "CANCELLATION_FEE", booking_id: booking.booking_id, amount: walletDeducted }
                     );
                 } else {

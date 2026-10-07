@@ -527,9 +527,11 @@ exports.cancelTrip = async (req, res) => {
             `, ['Trip cancelled by driver', bookingShare, b.id]);
         }
 
-        // deduct penalty from driver's wallet (BA has no wallet column → skipped)
-        if (creator_type === "DRIVER" && penalty > 0) {
-            await db.execute(`UPDATE drivers SET wallet = wallet - ? WHERE id = ?`, [penalty, creator_id]);
+        // deduct the penalty from whoever owns the trip: the captain for their own trip,
+        // the Business Associate for a BA trip (never the captain the BA assigned)
+        if (penalty > 0) {
+            const walletTable = creator_type === "DRIVER" ? "drivers" : "business_associates";
+            await db.execute(`UPDATE ${walletTable} SET wallet = wallet - ? WHERE id = ?`, [penalty, creator_id]);
         }
 
         return res.json({
@@ -538,7 +540,7 @@ exports.cancelTrip = async (req, res) => {
             cancel_window: window,
             bookings_refunded: activeBookings.length,
             total_refunded: totalRefunded.toFixed(2),
-            driver_penalty: (creator_type === "DRIVER" ? penalty : 0).toFixed(2)
+            driver_penalty: penalty.toFixed(2)
         });
 
     } catch (error) {
