@@ -531,12 +531,14 @@ exports.getWithdrawalRequests = async (req, res) => {
                 w.status, w.remarks, w.created_at, w.updated_at,
                 u.name        AS user_name,
                 u.mobile      AS user_mobile,
-                d.full_name   AS driver_name,
-                d.phone       AS driver_mobile,
-                COALESCE(u.wallet, d.wallet) AS wallet_balance
+                -- a Business Associate's request is shown in the same name/mobile columns
+                COALESCE(d.full_name, ba.ba_name) AS driver_name,
+                COALESCE(d.phone, ba.ba_mobile)   AS driver_mobile,
+                COALESCE(u.wallet, d.wallet, ba.wallet) AS wallet_balance
             FROM withdrawal_requests w
             LEFT JOIN users u ON w.user_type = 'USER' AND w.user_id = u.id
             LEFT JOIN drivers d ON w.user_type = 'DRIVER' AND w.user_id = d.id
+            LEFT JOIN business_associates ba ON w.user_type = 'BA' AND w.user_id = ba.id
             ${whereClause}
             ORDER BY w.id DESC
             LIMIT ${limitNum} OFFSET ${offset}
@@ -613,7 +615,8 @@ exports.updateWithdrawalStatus = async (req, res) => {
         const newStatus = status.toUpperCase();
 
         if (newStatus === 'APPROVED') {
-            const walletTable = wr.user_type === 'USER' ? 'users' : 'drivers';
+            const walletTable = wr.user_type === 'USER' ? 'users'
+                : wr.user_type === 'BA' ? 'business_associates' : 'drivers';
             const walletCol   = 'wallet';
             const [[entity]] = await db.execute(`SELECT ${walletCol} FROM ${walletTable} WHERE id = ?`, [wr.user_id]);
 

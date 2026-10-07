@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const baWallet = require("../services/baWallet");
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const fs = require("fs");
@@ -2385,6 +2386,8 @@ exports.verifyDriverDocument = async (req, res) => {
 // ==================== WALLET / RECHARGE ====================
 
 exports.driverInitiateRecharge = async (req, res) => {
+    // the captain app's Wallet screen is shared — a Business Associate lands here too
+    if (baWallet.isBAUser(req)) return baWallet.recharge(req, res);
     try {
         const driver_id = req.user.id;
         const { amount, payment_mode, transaction_id, remarks } = req.body;
@@ -2647,6 +2650,8 @@ exports.updateRechargeStatus = async (req, res) => {
 };
 
 exports.getDriverWallet = async (req, res) => {
+    // the captain app's Wallet screen is shared — a Business Associate lands here too
+    if (baWallet.isBAUser(req)) return baWallet.wallet(req, res);
     try {
         const driver_id = req.user.id;
 
@@ -2690,6 +2695,8 @@ exports.getDriverWallet = async (req, res) => {
 
 
 exports.getDriverRechargeHistory = async (req, res) => {
+    // the captain app's Wallet screen is shared — a Business Associate lands here too
+    if (baWallet.isBAUser(req)) return baWallet.rechargeHistory(req, res);
     try {
         const driver_id = req.user.id;
         const { status, page, limit } = req.query;
@@ -2949,6 +2956,8 @@ exports.collectPaymentAndCompleteRide = async (req, res) => {
 
 // ─── DRIVER WITHDRAWAL REQUEST ────────────────────────────────────────────────
 exports.createWithdrawalRequest = async (req, res) => {
+    // the captain app's Wallet screen is shared — a Business Associate lands here too
+    if (baWallet.isBAUser(req)) return baWallet.withdrawalRequest(req, res);
     try {
         const driver_id = req.user.id;
         const { amount, bank_name, account_number, ifsc_code, account_holder_name, upi_id } = req.body;
@@ -3003,6 +3012,8 @@ exports.createWithdrawalRequest = async (req, res) => {
 };
 
 exports.getDriverWithdrawalHistory = async (req, res) => {
+    // the captain app's Wallet screen is shared — a Business Associate lands here too
+    if (baWallet.isBAUser(req)) return baWallet.withdrawalHistory(req, res);
     try {
         const driver_id = req.user.id;
         const { page, limit } = req.query;

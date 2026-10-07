@@ -218,3 +218,26 @@ ALTER TABLE parcel_bookings
 ALTER TABLE onspot_bookings
   ADD COLUMN IF NOT EXISTS pickup_lat DECIMAL(10,7) DEFAULT NULL,
   ADD COLUMN IF NOT EXISTS pickup_lng DECIMAL(10,7) DEFAULT NULL;
+
+-- Business Associate wallet: the captain app's Wallet screen is shared by drivers and BAs.
+--     BA recharges get their own ledger (services/baWallet.js also creates it on first use),
+--     and BA withdrawal requests are stored with user_type 'BA'.
+CREATE TABLE IF NOT EXISTS ba_recharges (
+  id              INT NOT NULL AUTO_INCREMENT,
+  ba_id           INT NOT NULL,
+  recharge_id     VARCHAR(100) DEFAULT NULL,
+  amount          DECIMAL(10,2) NOT NULL DEFAULT '0.00',
+  payment_mode    VARCHAR(30) DEFAULT 'ONLINE',
+  transaction_id  VARCHAR(255) DEFAULT NULL,
+  payment_status  VARCHAR(20) DEFAULT 'PENDING',
+  recharge_status VARCHAR(20) DEFAULT 'PENDING',
+  remarks         TEXT,
+  created_at      TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY recharge_id (recharge_id),
+  KEY ba_id (ba_id)
+);
+
+ALTER TABLE withdrawal_requests
+  MODIFY COLUMN user_type ENUM('USER','DRIVER','BA') NOT NULL;
