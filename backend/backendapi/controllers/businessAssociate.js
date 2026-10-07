@@ -521,7 +521,11 @@ exports.getBABookings = async (req, res) => {
     try {
         const ba_id = req.user.id;
 
-        const [[ba]] = await db.query(`SELECT is_online FROM business_associates WHERE id = ?`, [ba_id]);
+        const [[ba]] = await db.query(`SELECT is_online, status FROM business_associates WHERE id = ?`, [ba_id]);
+        // deactivated by admin (status 0) — no new bookings, even if on duty
+        if (ba && ba.status !== null && Number(ba.status) === 0) {
+            return res.json({ status: true, message: "Your account is inactive. Please contact support.", total: 0, data: [] });
+        }
         if (!ba || !ba.is_online) {
             return res.json({ status: true, message: "You are off duty", total: 0, data: [] });
         }
@@ -807,7 +811,10 @@ exports.baacceptBooking = async (req, res) => {
             return res.status(400).json({ status: false, message: "booking_id required hai" });
         }
 
-        const [[ba]] = await db.query(`SELECT is_online FROM business_associates WHERE id = ?`, [ba_id]);
+        const [[ba]] = await db.query(`SELECT is_online, status FROM business_associates WHERE id = ?`, [ba_id]);
+        if (ba && ba.status !== null && Number(ba.status) === 0) {
+            return res.status(403).json({ status: false, message: "Your account is inactive. Please contact support." });
+        }
         if (!ba || !ba.is_online) {
             return res.status(400).json({ status: false, message: "You are off duty. Go online to accept bookings." });
         }

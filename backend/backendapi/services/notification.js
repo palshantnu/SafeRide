@@ -118,7 +118,9 @@ const notifyBAsByService = async (serviceId, title, body, data = {}) => {
             `SELECT ba.fcm_token
              FROM business_associates ba
              INNER JOIN ba_services bs ON bs.ba_id = ba.id
-             WHERE bs.service_id = ? AND ba.fcm_token IS NOT NULL AND ba.fcm_token <> ''`,
+             WHERE bs.service_id = ? AND ba.fcm_token IS NOT NULL AND ba.fcm_token <> ''
+               -- skip BAs deactivated by admin
+               AND (ba.status IS NULL OR ba.status <> 0)`,
             [serviceId]
         );
         await Promise.all(rows.map(r => sendPush(r.fcm_token, title, body, data)));
