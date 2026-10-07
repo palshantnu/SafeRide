@@ -8,6 +8,8 @@ const { notifyUser } = require('../services/notification');
 require("dotenv").config();
 const SECRET = process.env.JWT_SECRET;
 
+const { pickVehicle, saveDriverVehicle } = require("../services/driverVehicle");
+
 // One-time welcome gift credited to a Business Associate's wallet on first registration
 const BA_SIGNUP_GIFT = 100;
 
@@ -491,10 +493,12 @@ exports.getDriversByBA = async (req, res) => {
                 s.id AS service_id,
                 s.title AS service_name,
                 ss.id AS sub_service_id,
-                ss.title AS sub_service_name
+                ss.title AS sub_service_name,
+                dp.vehicle_type, dp.vehicle_model, dp.vehicle_color, dp.vehicle_number
             FROM drivers d
             LEFT JOIN services s ON s.id = d.service_id
             LEFT JOIN sub_services ss ON ss.id = d.sub_service_id
+            LEFT JOIN driver_profiles dp ON dp.driver_id = d.id
             WHERE d.ba_id = ?
             ORDER BY d.id DESC`,
             [ba_id]
@@ -905,6 +909,14 @@ exports.assignDriverToBooking = async (req, res) => {
             bookingData.driver_id &&
             Number(bookingData.driver_id) === Number(driver_id)
         ) {
+            // Same driver picked again with vehicle details → just update the vehicle
+            // on their profile (e.g. the BA is sending a different car).
+            if (await saveDriverVehicle(driver_id, pickVehicle(req.body))) {
+                return res.status(200).json({
+                    status: true,
+                    message: "Vehicle details updated for the assigned driver"
+                });
+            }
             return res.status(400).json({
                 status: false,
                 message: "This driver is already assigned"
@@ -993,6 +1005,10 @@ exports.assignDriverToBooking = async (req, res) => {
                 booking_id
             ]
         );
+
+        // ✅ Vehicle details the BA filled in for this assignment go onto the driver's
+        // profile, so the user sees them like any other captain's vehicle
+        await saveDriverVehicle(driver_id, pickVehicle(req.body));
 
         // ✅ Driver now belongs to whichever service this booking is for,
         // regardless of what service they were on before this assignment

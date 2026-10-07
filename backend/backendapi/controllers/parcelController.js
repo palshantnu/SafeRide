@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { v4: uuidv4 } = require("uuid");
 const { notifyUser, notifyDriversByService, notifyDriver, notifyBA } = require("../services/notification");
+const { pickVehicle, saveDriverVehicle } = require("../services/driverVehicle");
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────────
 const genId  = (prefix) => prefix + uuidv4().slice(0, 10).toUpperCase();
@@ -905,6 +906,9 @@ exports.baAcceptAndAssign = async (req, res) => {
                 driver_status = 'ASSIGNED', updated_at = NOW()
             WHERE id = ? AND driver_id IS NULL AND status = 'pending'
         `, [ba_id, driver.id, booking.id]);
+
+        // vehicle details the BA filled in for this assignment go onto the captain's profile
+        await saveDriverVehicle(driver.id, pickVehicle(req.body));
 
         return res.json({
             status: true,
