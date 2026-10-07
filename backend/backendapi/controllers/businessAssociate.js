@@ -1244,8 +1244,8 @@ exports.createBusinessAssociate = async (req, res) => {
         await conn.beginTransaction();
 
         const [result] = await conn.query(
-            `INSERT INTO business_associates (ba_name, ba_mobile, company_name, status) VALUES (?, ?, ?, 1)`,
-            [ba_name.trim(), ba_mobile.trim(), company_name?.trim() || null]
+            `INSERT INTO business_associates (ba_name, ba_mobile, company_name, wallet, status) VALUES (?, ?, ?, ?, 1)`,
+            [ba_name.trim(), ba_mobile.trim(), company_name?.trim() || null, BA_SIGNUP_GIFT]
         );
 
         const newId = result.insertId;
