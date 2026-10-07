@@ -1144,13 +1144,15 @@ exports.getDriverBookingHistory = async (req, res) => {
 
                 u.name   AS user_name,
                 u.mobile AS user_mobile,
-                s.title  AS service_name
+                s.title  AS service_name,
+                dr.rating, dr.review
 
             FROM bookings b
             LEFT JOIN plans p ON p.id = b.plan_id
             LEFT JOIN sub_services ss ON ss.id = b.sub_service_id
             LEFT JOIN users u ON u.id = b.user_id
             LEFT JOIN services s ON s.id = b.service_id
+            LEFT JOIN driver_reviews dr ON dr.booking_type = 'ride' AND dr.booking_id = b.id
 
             WHERE b.driver_id = ?
             ORDER BY b.id DESC

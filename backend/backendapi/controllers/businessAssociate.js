@@ -684,7 +684,9 @@ exports.getMyBABookings = async (req, res) => {
                 u.mobile AS user_mobile,
 
                 d.full_name AS driver_name,
-                d.phone AS driver_phone
+                d.phone AS driver_phone,
+
+                dr.rating, dr.review
 
             FROM bookings b
             LEFT JOIN users u
@@ -695,6 +697,8 @@ exports.getMyBABookings = async (req, res) => {
                 ON s.id = b.service_id
             LEFT JOIN plans p
                 ON p.id = b.plan_id
+            LEFT JOIN driver_reviews dr
+                ON dr.booking_type = 'ride' AND dr.booking_id = b.id
 
             WHERE ${whereClause}
               AND b.service_id != 1
