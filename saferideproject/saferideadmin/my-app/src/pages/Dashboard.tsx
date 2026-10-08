@@ -30,6 +30,7 @@ interface Booking {
   paid?: number;
   pickup_city?: string;
   drop_city?: string;
+  to_city?: string | null;
   created_at?: string;
 }
 
@@ -245,6 +246,12 @@ function RecentBookingsTable({ bookings, loading, globalSearch }: { bookings: Bo
                         <span style={{ color: "#cbd5e1" }}>→</span>
                         {b.drop_city || "—"}
                       </div>
+                      {/* Rental and Driver bookings also carry a destination city */}
+                      {b.to_city && /rental|driver/i.test(b.service_name || "") && (
+                        <div style={{ fontSize: 11, color: "#6366f1", fontWeight: 600, marginTop: 2 }}>
+                          To City: {b.to_city}
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding: "12px 16px", fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap" }}>
                       {b.total_fare ? `₹${parseFloat(b.total_fare).toFixed(2)}` : b.plan_price ? `₹${b.plan_price}` : "—"}
@@ -255,7 +262,7 @@ function RecentBookingsTable({ bookings, loading, globalSearch }: { bookings: Bo
                         {b.status || "—"}
                       </span>
                     </td>
-                    <td style={{ padding: "12px 16px", color: "#64748b", fontSize: 12, whiteSpace: "nowrap" }}>{fmt(b.created_at)}</td>
+                    <td style={{ padding: "12px 16px", color: "#1e293b", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt(b.created_at)}</td>
                   </tr>
                 );
               })}

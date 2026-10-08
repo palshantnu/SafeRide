@@ -89,6 +89,10 @@ const getStatus = (s?: string) =>
   STATUS_CONFIG[(s || '').toUpperCase()] || { bg: '#f1f5f9', color: '#475569', dot: '#94a3b8' };
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
+// Rental and Driver bookings carry a destination city (to_city) besides pickup/drop.
+const showsToCity = (b: { service_name?: string | null; to_city?: string | null }) =>
+  !!b.to_city && /rental|driver/i.test(b.service_name || '');
+
 const fmtDate  = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtFull  = (d?: string | null) => d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 const fmtDateTime = (d?: string | null) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -179,7 +183,7 @@ function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => vo
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <div style={{ flex: 1, height: '2px', background: '#e0e7ff', borderRadius: '2px' }} />
                 <MapPin size={14} color="#6366f1" />
-                {booking.to_city && <span style={{ fontSize: '11px', color: '#6366f1', fontWeight: 600 }}>{booking.to_city}</span>}
+                {booking.to_city && <span style={{ fontSize: '11px', color: '#6366f1', fontWeight: 600 }}>To City: {booking.to_city}</span>}
                 <div style={{ flex: 1, height: '2px', background: '#e0e7ff', borderRadius: '2px' }} />
               </div>
               <div style={{ textAlign: 'center', minWidth: '80px' }}>
@@ -589,6 +593,11 @@ export default function BookingHistory() {
                           <span style={{ color: '#c7d2fe' }}>→</span>
                           <span style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{b.drop_city}</span>
                         </div>
+                        {showsToCity(b) && (
+                          <div style={{ fontSize: '11px', color: '#6366f1', fontWeight: 600, marginTop: '2px', whiteSpace: 'nowrap' }}>
+                            To City: {b.to_city}
+                          </div>
+                        )}
                         <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
                           {b.person} person{b.person > 1 ? 's' : ''}
                           {b.distance ? ` · ${b.distance} km` : ''}
@@ -636,7 +645,7 @@ export default function BookingHistory() {
 
                       {/* Date */}
                       <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '3px', justifyContent: 'center', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px', justifyContent: 'center', whiteSpace: 'nowrap' }}>
                           <Calendar size={10} />{fmtDate(b.created_at)}
                         </div>
                       </td>
