@@ -29,6 +29,12 @@ interface Booking {
   actual_distance: string | null;
   actual_fare: string | null;
   platform_fee: string | null;
+  access_fee?: string | null;
+  // from the API: fare + paid topups (fees are already inside the fare)
+  total_amount?: number | null;
+  plan_km?: string | number | null;
+  topup_km?: string | number | null;
+  total_km?: number | null;      // plan km + paid topup km
   paid: number;
   payment_mode: string | null;
   person: number;
@@ -96,6 +102,24 @@ const showsToCity = (b: { service_name?: string | null; to_city?: string | null 
 const fmtDate  = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtFull  = (d?: string | null) => d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 const fmtDateTime = (d?: string | null) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+// Grand total for a booking: fare (which already carries platform + access fee) plus paid topups.
+const grandTotal = (b: Booking) => {
+  if (b.total_amount != null && Number(b.total_amount) > 0) return Number(b.total_amount);
+  const fare = Number(b.actual_fare || b.total_fare || 0)
+    || (Number(b.plan_price || 0) + Number(b.platform_fee || 0) + Number(b.access_fee || 0));
+  return fare + (Number(b.topup_paid_amount) || 0);
+};
+const num = (v?: string | number | null) => Number(v) || 0;
+// "50 km + 10 km topup = 60 km" for plan bookings; falls back to the estimated distance
+const kmText = (b: Booking) => {
+  if (num(b.plan_km) > 0) {
+    return num(b.topup_km) > 0
+      ? `${num(b.plan_km)} km + ${num(b.topup_km)} km topup = ${num(b.total_km) || num(b.plan_km) + num(b.topup_km)} km`
+      : `${num(b.plan_km)} km`;
+  }
+  return b.distance ? `${b.distance} km` : '';
+};
+
 const fmtAmt   = (v?: string | null) => v && parseFloat(v) > 0 ? `₹${parseFloat(v).toFixed(2)}` : v ? `₹${v}` : '—';
 
 // ─── DETAIL MODAL ─────────────────────────────────────────────────────────────
@@ -146,7 +170,7 @@ function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => vo
     );
   };
 
-  const totalFare = booking.total_fare || booking.plan_price;
+  const totalFare = String(grandTotal(booking));
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)', padding: '16px' }}>
@@ -206,7 +230,7 @@ function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => vo
           {/* Fare Summary */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '4px' }}>
             {[
-              { label: 'Total Fare', value: fmtAmt(totalFare), color: '#059669', bg: '#f0fdf4' },
+              { label: 'Total Amount', value: fmtAmt(totalFare), color: '#059669', bg: '#f0fdf4' },
               { label: 'Actual Fare', value: fmtAmt(booking.actual_fare), color: '#0369a1', bg: '#f0f9ff' },
               { label: 'Platform Fee', value: fmtAmt(booking.platform_fee), color: '#7c3aed', bg: '#fdf4ff' },
             ].map(c => (
@@ -261,6 +285,11 @@ function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => vo
           {booking.plan_name && <Row label="Plan"   value={booking.plan_name} />}
           {booking.plan_price && <Row label="Plan Price" value={<span style={{ color: '#059669', fontWeight: 700 }}>₹{booking.plan_price}</span>} />}
           <Row label="Distance"      value={booking.actual_distance ? `${booking.actual_distance} km` : booking.distance ? `${booking.distance} km (est.)` : '—'} />
+          {num(booking.plan_km) > 0 && <Row label="Plan KM" value={`${num(booking.plan_km)} km`} />}
+          {num(booking.topup_km) > 0 && <Row label="Topup KM" value={<span style={{ color: '#b45309', fontWeight: 700 }}>+{num(booking.topup_km)} km</span>} />}
+          {num(booking.plan_km) > 0 && <Row label="Total KM" value={<b>{num(booking.total_km) || num(booking.plan_km) + num(booking.topup_km)} km</b>} />}
+          {num(booking.access_fee) > 0 && <Row label="Access Fee" value={`₹${num(booking.access_fee).toFixed(2)} (included in total)`} />}
+          {num(booking.topup_paid_amount) > 0 && <Row label="Topup Amount" value={<span style={{ color: '#b45309', fontWeight: 700 }}>+₹{num(booking.topup_paid_amount).toFixed(2)} (included in total)</span>} />}
           <Row label="Payment Mode"  value={<span style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 600 }}>{booking.payment_mode || '—'}</span>} />
           <Row label="Paid"          value={booking.paid === 1 ? <span style={{ color: '#059669', fontWeight: 700 }}>Yes</span> : <span style={{ color: '#ef4444', fontWeight: 700 }}>No</span>} />
           <Row label="Persons"       value={booking.person} />
@@ -536,7 +565,7 @@ export default function BookingHistory() {
 
                 {!loading && paginated.map((b, idx) => {
                   const st = getStatus(b.status);
-                  const amount = b.total_fare || b.plan_price;
+                  const amount = grandTotal(b);
                   return (
                     <tr key={b.id} className="bk-row" onClick={() => setSelectedBk(b)} style={{ borderBottom: '1px solid #f1f5f9' }}>
 
@@ -604,7 +633,7 @@ export default function BookingHistory() {
                         ))}
                         <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
                           {b.person} person{b.person > 1 ? 's' : ''}
-                          {b.distance ? ` · ${b.distance} km` : ''}
+                          {kmText(b) ? ` · ${kmText(b)}` : ''}
                         </div>
                       </td>
 
@@ -618,10 +647,17 @@ export default function BookingHistory() {
                       {/* Amount */}
                       <td style={{ padding: '12px 14px', textAlign: 'right' }}>
                         <div style={{ fontSize: '13px', fontWeight: 800, color: '#059669' }}>
-                          {amount ? `₹${parseFloat(amount).toFixed(2)}` : '—'}
+                          {amount ? `₹${amount.toFixed(2)}` : '—'}
                         </div>
-                        {b.platform_fee && parseFloat(b.platform_fee) > 0 && (
-                          <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>+₹{b.platform_fee} fee</div>
+                        {/* what the total is made of */}
+                        {num(b.topup_paid_amount) > 0 && (
+                          <div style={{ fontSize: '10px', color: '#b45309', marginTop: '1px', fontWeight: 600 }}>incl. topup ₹{num(b.topup_paid_amount).toFixed(2)}</div>
+                        )}
+                        {num(b.access_fee) > 0 && (
+                          <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>incl. access fee ₹{num(b.access_fee).toFixed(2)}</div>
+                        )}
+                        {num(b.platform_fee) > 0 && (
+                          <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>incl. platform fee ₹{num(b.platform_fee).toFixed(2)}</div>
                         )}
                       </td>
 

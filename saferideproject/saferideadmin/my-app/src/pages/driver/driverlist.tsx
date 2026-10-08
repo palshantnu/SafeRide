@@ -64,7 +64,24 @@ interface Booking {
   plan_price?: string;
   plan_hour?: string;
   plan_km?: string;
+  total_fare?: string | number | null;
+  actual_fare?: string | number | null;
+  access_fee?: string | number | null;
+  platform_fee?: string | number | null;
+  topups?: { extra_km?: string | number; topup_amount?: string | number; status?: string }[];
 }
+
+// Paid topups on a booking: amount and extra km
+const paidTopups = (b: Booking) => (b.topups || []).filter(t => (t.status || '').toUpperCase() === 'PAID');
+const topupAmount = (b: Booking) => paidTopups(b).reduce((s, t) => s + (Number(t.topup_amount) || 0), 0);
+const topupKm     = (b: Booking) => paidTopups(b).reduce((s, t) => s + (Number(t.extra_km) || 0), 0);
+// Total for a booking: fare (already includes platform + access fee) plus paid topups
+const bookingTotal = (b: Booking) => {
+  const fare = Number(b.actual_fare || b.total_fare || 0)
+    || (Number(b.plan_price || 0) + Number(b.platform_fee || 0) + Number(b.access_fee || 0))
+    || Number(b.balance_amount ?? b.amount ?? 0);
+  return fare + topupAmount(b);
+};
 
 interface DriverDocument {
   id: number;
@@ -571,13 +588,13 @@ export default function DriverList() {
           />
           {!bookingsLoading && bookings.length > 0 && (() => {
             const completed = bookings.filter(b => ['COMPLETED', 'DROPPED', 'BALANCE_PAID'].includes((b.status || '').toUpperCase())).length;
-            const totalEarned = bookings.reduce((sum, b) => sum + Number(b.balance_amount ?? b.amount ?? b.plan_price ?? 0), 0);
+            const totalEarned = bookings.reduce((sum, b) => sum + bookingTotal(b), 0);
             return (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px', marginBottom: '20px' }}>
                 {[
                   { label: 'Total Rides', value: bookings.length, bg: '#eff6ff', color: '#2563eb' },
                   { label: 'Completed', value: completed, bg: '#f0fdf4', color: '#16a34a' },
-                  { label: 'Amount', value: `₹${totalEarned}`, bg: '#fdf4ff', color: '#7e22ce' },
+                  { label: 'Amount', value: `₹${totalEarned.toFixed(2)}`, bg: '#fdf4ff', color: '#7e22ce' },
                 ].map(s => (
                   <div key={s.label} style={{ background: s.bg, borderRadius: '12px', padding: '12px 16px', textAlign: 'center' }}>
                     <div style={{ fontSize: '18px', fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -602,7 +619,7 @@ export default function DriverList() {
                 const userName = b.user_name || b.customer_name || '—';
                 const pickup = b.pickup_city || b.pickup || '—';
                 const drop = b.drop_city || b.drop || '—';
-                const amount = b.balance_amount ?? b.amount ?? b.plan_price ?? '—';
+                const amount = bookingTotal(b).toFixed(2);
                 return (
                   <div key={b.id} style={{ background: '#f8fafc', borderRadius: '14px', padding: '14px 16px', border: '1.5px solid #f1f5f9', display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'flex-start' }}>
                     <div style={{ minWidth: '90px' }}>
@@ -622,11 +639,13 @@ export default function DriverList() {
                       </div>
                       <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
                         {b.service_name || '—'} {b.plan_name ? `· ${b.plan_name}` : ''}
-                        {b.plan_hour || b.plan_km ? ` · ${b.plan_hour || '—'} hr / ${b.plan_km || '—'} km` : ''}
+                        {b.plan_hour || b.plan_km ? ` · ${b.plan_hour || '—'} hr / ${topupKm(b) > 0 ? `${Number(b.plan_km) || 0} km + ${topupKm(b)} km topup = ${(Number(b.plan_km) || 0) + topupKm(b)}` : (b.plan_km || '—')} km` : ''}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', minWidth: '80px' }}>
                       <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>₹{amount}</div>
+                      {topupAmount(b) > 0 && <div style={{ fontSize: '10px', color: '#b45309', fontWeight: 600 }}>incl. topup ₹{topupAmount(b).toFixed(2)}</div>}
+                      {Number(b.access_fee) > 0 && <div style={{ fontSize: '10px', color: '#94a3b8' }}>incl. access fee ₹{Number(b.access_fee).toFixed(2)}</div>}
                       <div style={{ marginTop: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '20px', background: st.bg, color: st.color, fontSize: '10px', fontWeight: 700 }}>
                         {st.icon}
                         {(b.status || '').toUpperCase()}

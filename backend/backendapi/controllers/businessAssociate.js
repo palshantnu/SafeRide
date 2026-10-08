@@ -2183,12 +2183,22 @@ exports.getBABookingsByAdmin = async (req, res) => {
                 u.name AS user_name, u.mobile AS user_mobile,
                 d.full_name AS driver_name, d.phone AS driver_mobile,
                 s.title AS service_name,
-                p.plan_name, p.plan_price, p.plan_hour, p.plan_km
+                p.plan_name, p.plan_price, p.plan_hour, p.plan_km,
+                b.access_fee, b.platform_fee,
+                COALESCE(bt.topup_paid_amount, 0) AS topup_paid_amount,
+                COALESCE(bt.topup_km, 0)          AS topup_km
             FROM bookings b
             LEFT JOIN users u    ON u.id = b.user_id
             LEFT JOIN drivers d  ON d.id = b.driver_id
             LEFT JOIN services s ON s.id = b.service_id
             LEFT JOIN plans p    ON p.id = b.plan_id
+            LEFT JOIN (
+                SELECT booking_id,
+                       SUM(CASE WHEN status = 'PAID' THEN topup_amount ELSE 0 END) AS topup_paid_amount,
+                       SUM(CASE WHEN status = 'PAID' THEN extra_km     ELSE 0 END) AS topup_km
+                FROM booking_topups
+                GROUP BY booking_id
+            ) bt ON bt.booking_id = b.id
             WHERE b.bussinessassociate_id = ?
             ORDER BY b.id DESC
         `, [id]);

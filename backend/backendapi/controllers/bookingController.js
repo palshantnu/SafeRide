@@ -268,8 +268,9 @@ exports.getBookingHistory = async (req, res) => {
                 d.id AS driver_id, d.full_name AS driver_name, d.phone AS driver_mobile, d.wallet AS driver_wallet,
                 s.title AS service_name,
                 ss.title AS sub_service_name,
-                p.plan_name, p.plan_price, p.plan_captain_commission, p.plan_company_commission,
+                p.plan_name, p.plan_price, p.plan_km, p.plan_hour, p.plan_captain_commission, p.plan_company_commission,
                 COALESCE(bt.topup_count, 0)                 AS topup_count,
+                COALESCE(bt.topup_km, 0)                     AS topup_km,
                 COALESCE(bt.topup_paid_amount, 0)            AS topup_paid_amount,
                 COALESCE(bt.topup_pending_amount, 0)         AS topup_pending_amount,
                 COALESCE(bt.topup_captain_commission, 0)     AS topup_captain_commission,
@@ -286,6 +287,7 @@ exports.getBookingHistory = async (req, res) => {
                 SELECT
                     booking_id,
                     COUNT(*) AS topup_count,
+                    SUM(CASE WHEN status = 'PAID'    THEN extra_km           ELSE 0 END) AS topup_km,
                     SUM(CASE WHEN status = 'PAID'    THEN topup_amount       ELSE 0 END) AS topup_paid_amount,
                     SUM(CASE WHEN status = 'PENDING' THEN topup_amount       ELSE 0 END) AS topup_pending_amount,
                     SUM(CASE WHEN status = 'PAID'    THEN captain_commission ELSE 0 END) AS topup_captain_commission,
@@ -304,8 +306,16 @@ exports.getBookingHistory = async (req, res) => {
         const data = rows.map(b => {
             const isInCity = parseInt(b.service_id) === 1;
             const isCancelled = b.status === 'CANCELLED';
-            const baseFare = parseFloat(b.actual_fare || b.total_fare || 0);
+            const accessFee   = parseFloat(b.access_fee || 0);
+            const platformFee = parseFloat(b.platform_fee || 0);
+            // total_fare already includes the plan's platform + access fee; only a row that has
+            // neither fare recorded falls back to plan price + those fees.
+            const baseFare = parseFloat(b.actual_fare || b.total_fare || 0)
+                || (parseFloat(b.plan_price || 0) + platformFee + accessFee);
             const topupPaid = parseFloat(b.topup_paid_amount || 0);
+            // distance covered by the plan plus the extra km bought through paid topups
+            const planKm  = parseFloat(b.plan_km || 0);
+            const topupKm = parseFloat(b.topup_km || 0);
 
             let company_amount = 0;
             let captain_amount = 0;
@@ -358,6 +368,7 @@ exports.getBookingHistory = async (req, res) => {
                 ...b,
                 paid: settled ? 1 : 0,
                 total_amount: Math.round(total_amount * 100) / 100,
+                total_km: planKm > 0 ? Math.round((planKm + topupKm) * 100) / 100 : null,
                 company_amount: Math.round(company_amount * 100) / 100,
                 captain_amount: Math.round(captain_amount * 100) / 100,
                 wallet_impact,

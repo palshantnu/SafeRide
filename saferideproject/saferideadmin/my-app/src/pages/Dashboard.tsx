@@ -26,6 +26,8 @@ interface Booking {
   sub_service_name?: string | null;
   plan_price?: string | null;
   total_fare?: string | null;
+  total_amount?: number | null;          // fare (incl. fees) + paid topups, from the API
+  topup_paid_amount?: string | number | null;
   payment_mode?: string | null;
   paid?: number;
   pickup_city?: string;
@@ -254,7 +256,10 @@ function RecentBookingsTable({ bookings, loading, globalSearch }: { bookings: Bo
                       ))}
                     </td>
                     <td style={{ padding: "12px 16px", fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap" }}>
-                      {b.total_fare ? `₹${parseFloat(b.total_fare).toFixed(2)}` : b.plan_price ? `₹${b.plan_price}` : "—"}
+                      {Number(b.total_amount) > 0 ? `₹${Number(b.total_amount).toFixed(2)}` : b.total_fare ? `₹${parseFloat(b.total_fare).toFixed(2)}` : b.plan_price ? `₹${b.plan_price}` : "—"}
+                      {Number(b.topup_paid_amount) > 0 && (
+                        <div style={{ fontSize: 10, color: "#b45309", fontWeight: 600, marginTop: 1 }}>incl. topup ₹{Number(b.topup_paid_amount).toFixed(2)}</div>
+                      )}
                     </td>
                     <td style={{ padding: "12px 16px" }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: sc.bg, color: sc.color, padding: "4px 9px", borderRadius: 20, fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap" }}>

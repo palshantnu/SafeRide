@@ -152,7 +152,19 @@ interface BAHistoryBooking {
   total_fare?: number | string | null;
   balance_amount?: number | string | null;
   plan_price?: number | string | null;
+  access_fee?: number | string | null;
+  platform_fee?: number | string | null;
+  plan_km?: number | string | null;
+  topup_km?: number | string | null;
+  topup_paid_amount?: number | string | null;
 }
+
+// Total for a BA booking: fare (already includes platform + access fee) plus paid topups
+const baBookingTotal = (b: BAHistoryBooking) => {
+  const fare = Number(b.total_fare || 0)
+    || (Number(b.plan_price || 0) + Number(b.platform_fee || 0) + Number(b.access_fee || 0));
+  return fare + (Number(b.topup_paid_amount) || 0);
+};
 
 const fmtJoined = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -1041,7 +1053,7 @@ export default function BAList() {
                   {(() => {
                     const isDone = (b: BAHistoryBooking) => ['COMPLETED', 'DROPPED', 'BALANCE_PAID'].includes((b.status || '').toUpperCase());
                     const completed = baBookings.filter(isDone).length;
-                    const amount = baBookings.filter(isDone).reduce((sum, b) => sum + (Number(b.total_fare ?? b.plan_price ?? 0) || 0), 0);
+                    const amount = baBookings.filter(isDone).reduce((sum, b) => sum + baBookingTotal(b), 0);
                     return (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px', marginBottom: '16px' }}>
                         {[
@@ -1063,7 +1075,7 @@ export default function BAList() {
                       const done = ['COMPLETED', 'DROPPED', 'BALANCE_PAID'].includes(st);
                       const cancelled = ['CANCELLED', 'REJECTED'].includes(st);
                       const badge = done ? { bg: '#f0fdf4', color: '#16a34a' } : cancelled ? { bg: '#fff1f2', color: '#ef4444' } : { bg: '#fffbeb', color: '#d97706' };
-                      const amount = b.total_fare ?? b.balance_amount ?? b.plan_price ?? '—';
+                      const amount = baBookingTotal(b).toFixed(2);
                       return (
                         <div key={b.id} style={{ background: '#f8fafc', borderRadius: '14px', padding: '14px 16px', border: '1.5px solid #f1f5f9', display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'flex-start' }}>
                           <div style={{ minWidth: '90px' }}>
@@ -1084,6 +1096,7 @@ export default function BAList() {
                             </div>
                             <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
                               {b.service_name || '—'}{b.plan_name ? ` · ${b.plan_name}` : ''}
+                              {Number(b.plan_km) > 0 ? ` · ${Number(b.topup_km) > 0 ? `${Number(b.plan_km)} km + ${Number(b.topup_km)} km topup = ${Number(b.plan_km) + Number(b.topup_km)} km` : `${Number(b.plan_km)} km`}` : ''}
                             </div>
                             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                               <Car size={10} color="#94a3b8" /> Captain: <b style={{ color: '#1e293b' }}>{b.driver_name || 'Not assigned'}</b>
@@ -1091,6 +1104,8 @@ export default function BAList() {
                           </div>
                           <div style={{ textAlign: 'right', minWidth: '80px' }}>
                             <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>₹{amount}</div>
+                            {Number(b.topup_paid_amount) > 0 && <div style={{ fontSize: '10px', color: '#b45309', fontWeight: 600 }}>incl. topup ₹{Number(b.topup_paid_amount).toFixed(2)}</div>}
+                            {Number(b.access_fee) > 0 && <div style={{ fontSize: '10px', color: '#94a3b8' }}>incl. access fee ₹{Number(b.access_fee).toFixed(2)}</div>}
                             <div style={{ marginTop: '6px', display: 'inline-block', padding: '3px 8px', borderRadius: '20px', background: badge.bg, color: badge.color, fontSize: '10px', fontWeight: 700 }}>
                               {st || '—'}
                             </div>
