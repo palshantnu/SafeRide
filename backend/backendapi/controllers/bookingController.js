@@ -416,6 +416,35 @@ exports.getBookingTopups = async (req, res) => {
     }
 };
 
+// GET /admin/bookings/:id/meter-images — the meter photos the captain uploaded for a
+// booking (ride start, each topup, ride completion) and the km reading typed with them.
+exports.getBookingMeterImages = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const [rows] = await db.execute(`
+            SELECT id, booking_id, image_type, image, meter_text, created_at
+            FROM booking_meter_images
+            WHERE booking_id = ?
+            ORDER BY id ASC
+        `, [id]);
+
+        const baseUrl = `https://${req.get('host')}`;
+        return res.json({
+            status: true,
+            message: "Booking meter images fetched successfully",
+            total: rows.length,
+            data: rows.map(r => ({
+                ...r,
+                image_url: r.image ? `${baseUrl}/uploads/meter_images/${r.image}` : null
+            }))
+        });
+    } catch (error) {
+        console.error("getBookingMeterImages Error:", error);
+        return res.status(500).json({ status: false, message: error.message });
+    }
+};
+
 exports.getPlans = async (req, res) => {
     try {
         const { service_id, sub_service_id } = req.body;

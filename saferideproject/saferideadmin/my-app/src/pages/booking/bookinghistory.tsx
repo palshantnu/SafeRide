@@ -5,7 +5,7 @@ import {
   Car, Calendar, Hash, RefreshCw, Filter, Phone,
   ShoppingBag, XCircle, Activity, Eye, Zap,
 } from 'lucide-react';
-import { getAllBookinghistory, getBookingTopups, getBookingServices } from '../../services/api';
+import { getAllBookinghistory, getBookingTopups, getBookingServices, getBookingMeterImages } from '../../services/api';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 interface Booking {
@@ -129,12 +129,36 @@ const TOPUP_STATUS_CONFIG: Record<string, { bg: string; color: string }> = {
   CANCELLED:{ bg: '#fff1f2', color: '#991b1b' },
   EXPIRED:  { bg: '#f1f5f9', color: '#64748b' },
 };
+// A meter photo the captain uploaded, with the km reading typed alongside it (if any)
+interface MeterImage {
+  id: number;
+  image_type: string;          // STARTED | TOPUP | COMPLETE
+  image_url: string | null;
+  meter_text: string | null;
+  created_at: string;
+}
+const METER_LABEL: Record<string, string> = {
+  STARTED: 'Pickup (ride start)',
+  TOPUP: 'Topup',
+  COMPLETE: 'Drop (ride end)',
+};
+
 const getTopupStatus = (s?: string) => TOPUP_STATUS_CONFIG[(s || '').toUpperCase()] || { bg: '#f1f5f9', color: '#475569' };
 
 function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => void }) {
   const st = getStatus(booking.status);
   const [topups, setTopups] = useState<BookingTopup[]>([]);
   const [topupsLoading, setTopupsLoading] = useState(false);
+  const [meterImages, setMeterImages] = useState<MeterImage[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    setMeterImages([]);
+    getBookingMeterImages(booking.id)
+      .then(res => { if (alive) setMeterImages((res as { data: { data?: MeterImage[] } }).data?.data || []); })
+      .catch(() => { if (alive) setMeterImages([]); });
+    return () => { alive = false; };
+  }, [booking.id]);
 
   useEffect(() => {
     if (!booking.topup_count) return;
@@ -240,6 +264,34 @@ function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => vo
               </div>
             ))}
           </div>
+
+          {/* Meter photos + readings */}
+          {meterImages.length > 0 && (
+            <>
+              <Section title={`Meter Photos (${meterImages.length})`} color="#0369a1" bg="#f0f9ff" />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '10px', marginBottom: '8px' }}>
+                {meterImages.map(m => (
+                  <div key={m.id} style={{ border: '1.5px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', background: '#f8fafc' }}>
+                    {m.image_url ? (
+                      <a href={m.image_url} target="_blank" rel="noreferrer" title="Open full image">
+                        <img src={m.image_url} alt={METER_LABEL[m.image_type] || m.image_type}
+                          style={{ width: '100%', height: '110px', objectFit: 'cover', display: 'block' }} />
+                      </a>
+                    ) : (
+                      <div style={{ height: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '11px' }}>No image</div>
+                    )}
+                    <div style={{ padding: '8px 10px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#0369a1' }}>{METER_LABEL[m.image_type] || m.image_type}</div>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b', marginTop: '2px' }}>
+                        {m.meter_text ? `Reading: ${m.meter_text}` : <span style={{ color: '#94a3b8', fontWeight: 500 }}>No reading entered</span>}
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>{fmtFull(m.created_at)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Topups */}
           {booking.topup_count > 0 && (

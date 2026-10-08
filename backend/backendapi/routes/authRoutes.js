@@ -251,6 +251,7 @@ router.patch ('/planstatus/:id/status',service.togglePlanStatus);
 router.get('/all/bookinghistory', bookingController.getBookingHistory);
 router.get('/admin/booking-services', bookingController.getBookingServices);
 router.get('/admin/bookings/:id/topups', bookingController.getBookingTopups);
+router.get('/admin/bookings/:id/meter-images', bookingController.getBookingMeterImages);
 router.delete('/booking/destroy/:booking_id', bookingController.destroyBooking);
 router.get('/admin/withdrawal-requests', bookingController.getWithdrawalRequests);
 router.patch('/admin/withdrawal-requests/:id/status', bookingController.updateWithdrawalStatus);
