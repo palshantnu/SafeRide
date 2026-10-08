@@ -5,7 +5,7 @@ import {
   Car, Calendar, Hash, RefreshCw, Filter, Phone,
   ShoppingBag, XCircle, Activity, Eye, Zap,
 } from 'lucide-react';
-import { getAllBookinghistory, getBookingTopups } from '../../services/api';
+import { getAllBookinghistory, getBookingTopups, getBookingServices } from '../../services/api';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 interface Booking {
@@ -330,7 +330,9 @@ export default function BookingHistory() {
   const [loading,      setLoading]      = useState(true);
   const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [typeFilter,   setTypeFilter]   = useState('');
+  // service filter: '' = all, otherwise a service id; options come from the DB
+  const [serviceFilter, setServiceFilter] = useState('');
+  const [serviceOptions, setServiceOptions] = useState<{ id: number; title: string }[]>([]);
   const [page,         setPage]         = useState(1);
   const [selectedBk,   setSelectedBk]  = useState<Booking | null>(null);
   const PER_PAGE = 10;
@@ -354,7 +356,11 @@ export default function BookingHistory() {
   useEffect(() => { fetchBookings(); }, [fetchBookings]);
 
   const statuses = useMemo(() => [...new Set(bookings.map(b => b.status))].sort(), [bookings]);
-  const types    = useMemo(() => [...new Set(bookings.map(b => b.booking_type).filter(Boolean))].sort(), [bookings]);
+  useEffect(() => {
+    getBookingServices()
+      .then(res => setServiceOptions(Array.isArray(res.data?.data) ? res.data.data : []))
+      .catch(() => setServiceOptions([]));
+  }, []);
 
   const filtered = useMemo(() => bookings.filter(b => {
     const q = search.toLowerCase();
@@ -369,9 +375,9 @@ export default function BookingHistory() {
       (b.sub_service_name || '').toLowerCase().includes(q) ||
       (b.plan_name   || '').toLowerCase().includes(q);
     const matchStatus = !statusFilter || b.status === statusFilter;
-    const matchType   = !typeFilter   || b.booking_type === typeFilter;
-    return matchSearch && matchStatus && matchType;
-  }), [bookings, search, statusFilter, typeFilter]);
+    const matchService = !serviceFilter || String(b.service_id) === serviceFilter;
+    return matchSearch && matchStatus && matchService;
+  }), [bookings, search, statusFilter, serviceFilter]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -381,8 +387,8 @@ export default function BookingHistory() {
   const active    = useMemo(() => bookings.filter(b => ['SEARCHING', 'ACCEPTED', 'ARRIVED', 'STARTED', 'PICKEDUP'].includes(b.status)).length, [bookings]);
   const withTopup = useMemo(() => bookings.filter(b => b.topup_count > 0).length, [bookings]);
 
-  const resetFilters = () => { setSearch(''); setStatusFilter(''); setTypeFilter(''); setPage(1); };
-  const hasFilter    = search || statusFilter || typeFilter;
+  const resetFilters = () => { setSearch(''); setStatusFilter(''); setServiceFilter(''); setPage(1); };
+  const hasFilter    = search || statusFilter || serviceFilter;
 
   return (
     <>
@@ -450,18 +456,16 @@ export default function BookingHistory() {
             </select>
           </div>
 
-          {types.length > 0 && (
+          {serviceOptions.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '10px', padding: '7px 12px' }}>
               <Hash size={13} color="#94a3b8" />
               <select
-                value={typeFilter}
-                onChange={e => { setTypeFilter(e.target.value); setPage(1); }}
+                value={serviceFilter}
+                onChange={e => { setServiceFilter(e.target.value); setPage(1); }}
                 style={{ border: 'none', outline: 'none', fontSize: '12px', color: '#1e293b', background: 'transparent', cursor: 'pointer', minWidth: '120px' }}
               >
-                <option value="">All Types</option>
-                <option value="0">In City</option>
-                <option value="1">Outstation / Rental</option>
-                {types.filter(t => t !== '0' && t !== '1').map(t => <option key={t} value={t}>{t}</option>)}
+                <option value="">All Services</option>
+                {serviceOptions.map(sv => <option key={sv.id} value={String(sv.id)}>{sv.title}</option>)}
               </select>
             </div>
           )}

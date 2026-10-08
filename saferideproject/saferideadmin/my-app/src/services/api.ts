@@ -65,6 +65,8 @@ export const deleteBussinessAssociate  = (id: number)               => API.delet
 // Booking history — all support: status, service_id, from_date, to_date, search, page, limit
 export const getAllBookinghistory    = (params?: Record<string, unknown>) => API.get('all/bookinghistory', { params });
 export const getBookingTopups        = (id: string | number)              => API.get(`/admin/bookings/${id}/topups`);
+// services shown in the Booking History service filter (names from the DB)
+export const getBookingServices      = () => API.get('/admin/booking-services');
 export const getAdminNotifications   = () => API.get('/admin/admin-notifications');
 // Web push: this browser's FCM token, so admin notifications reach it when the panel is closed
 export const registerAdminPushToken  = (token: string) => API.post('/admin/push-token', { token });

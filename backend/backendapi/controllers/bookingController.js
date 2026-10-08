@@ -647,3 +647,28 @@ exports.updateWithdrawalStatus = async (req, res) => {
         return res.status(500).json({ status: false, message: error.message });
     }
 };
+
+// GET /admin/booking-services — the services offered in the Booking History service filter.
+// Names come straight from the `services` table. Parcel, On-Spot and Self-Sharing /
+// Inter-City keep their bookings in their own tables and have their own history screens,
+// so any service those tables use is left out; the title check only covers such a service
+// before it has had its first booking.
+exports.getBookingServices = async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT s.id, s.title
+            FROM services s
+            WHERE s.deleted_at IS NULL
+              AND s.id NOT IN (SELECT DISTINCT service_id FROM parcel_bookings WHERE service_id IS NOT NULL)
+              AND s.id NOT IN (SELECT DISTINCT service_id FROM onspot_bookings WHERE service_id IS NOT NULL)
+              AND s.id NOT IN (SELECT DISTINCT service_id FROM sigi_trips      WHERE service_id IS NOT NULL)
+              AND s.title NOT REGEXP 'parcel|on[ -]?spot|sharing|inter[ -]?city'
+              AND (s.status = 1 OR s.id IN (SELECT DISTINCT service_id FROM bookings WHERE service_id IS NOT NULL))
+            ORDER BY s.title
+        `);
+        return res.json({ status: true, message: "Booking services fetched successfully", data: rows });
+    } catch (error) {
+        console.error("getBookingServices error:", error);
+        return res.status(500).json({ status: false, message: error.message });
+    }
+};
