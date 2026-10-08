@@ -82,6 +82,8 @@ const DOC_TYPES = [
   { value: 'voter_id',                 label: 'Voter ID'                    },
   { value: 'rc',                       label: 'RC (Registration Certificate)'},
   { value: 'vehicle_fitness_certificate', label: 'Vehicle Fitness Certificate'},
+  { value: 'pollution_card',           label: 'Pollution Card (PUC)'        },
+  { value: 'permit',                   label: 'Permit'                      },
   { value: 'other',                    label: 'Other'                       },
 ];
 
@@ -92,6 +94,8 @@ const DOC_BADGE_COLORS: Record<string, { bg: string; color: string; border: stri
   pan_card:    { bg: '#fef3c7', color: '#92400e', border: '#fde68a' },
   passport:    { bg: '#fce7f3', color: '#9d174d', border: '#fbcfe8' },
   voter_id:    { bg: '#d1fae5', color: '#065f46', border: '#a7f3d0' },
+  pollution_card: { bg: '#ecfccb', color: '#3f6212', border: '#d9f99d' },
+  permit:      { bg: '#ffedd5', color: '#9a3412', border: '#fed7aa' },
   other:       { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' },
 };
 
