@@ -232,6 +232,7 @@ router.put("/ba/:id",baController.updateBusinessAssociateByAdmin);
 router.post("/ba/upload-kyc", verifyToken, upload.any(), baController.uploadBAKycDocument);
 router.get("/ba/kyc", verifyToken, baController.getBADocuments);
 router.get("/admin/business-associates/:id/documents", baController.getBADocumentsByAdmin);
+router.get("/admin/business-associates/:id/bookings", baController.getBABookingsByAdmin);
 router.patch("/admin/business-associates/:id/kyc/verify", baController.verifyBADocument);
 
 

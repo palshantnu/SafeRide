@@ -2162,3 +2162,46 @@ exports.verifyBADocument = async (req, res) => {
         return res.status(500).json({ status: false, message: error.message });
     }
 };
+
+// GET /admin/business-associates/:id/bookings — every booking this Business Associate has
+// taken (admin panel: BA list → Booking History), newest first, with the user and the
+// captain the BA assigned.
+exports.getBABookingsByAdmin = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const [[ba]] = await db.query(`SELECT id, ba_name, ba_mobile FROM business_associates WHERE id = ?`, [id]);
+        if (!ba) return res.status(404).json({ status: false, message: "Business Associate not found" });
+
+        const [bookings] = await db.query(`
+            SELECT
+                b.id, b.booking_id, b.booking_type,
+                b.pickup_city, b.drop_city, b.to_city, b.pickup_address, b.drop_address,
+                b.person, b.schedule_date, b.total_fare, b.balance_amount, b.token_amount, b.token_paid,
+                b.status, b.user_status, b.driver_status, b.cancelled_by, b.cancel_reason, b.cancellation_fee,
+                b.created_at,
+                u.name AS user_name, u.mobile AS user_mobile,
+                d.full_name AS driver_name, d.phone AS driver_mobile,
+                s.title AS service_name,
+                p.plan_name, p.plan_price, p.plan_hour, p.plan_km
+            FROM bookings b
+            LEFT JOIN users u    ON u.id = b.user_id
+            LEFT JOIN drivers d  ON d.id = b.driver_id
+            LEFT JOIN services s ON s.id = b.service_id
+            LEFT JOIN plans p    ON p.id = b.plan_id
+            WHERE b.bussinessassociate_id = ?
+            ORDER BY b.id DESC
+        `, [id]);
+
+        return res.json({
+            status: true,
+            message: "Business Associate bookings fetched successfully",
+            business_associate: ba,
+            total: bookings.length,
+            data: bookings
+        });
+    } catch (error) {
+        console.error("getBABookingsByAdmin error:", error);
+        return res.status(500).json({ status: false, message: "Server error", error: error.message });
+    }
+};

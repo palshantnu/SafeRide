@@ -135,6 +135,25 @@ const getKycStatus = (s?: string | null) =>
   KYC_STATUS[(s || 'pending').toLowerCase()] || KYC_STATUS.pending;
 
 // Small inline badge for the list (handles "not submitted" = null/empty/'not_uploaded')
+// A booking this BA took (admin → BA Booking History)
+interface BAHistoryBooking {
+  id: number;
+  booking_id?: string;
+  status?: string;
+  created_at?: string | null;
+  pickup_city?: string | null;
+  drop_city?: string | null;
+  to_city?: string | null;
+  user_name?: string | null;
+  user_mobile?: string | null;
+  driver_name?: string | null;
+  service_name?: string | null;
+  plan_name?: string | null;
+  total_fare?: number | string | null;
+  balance_amount?: number | string | null;
+  plan_price?: number | string | null;
+}
+
 const fmtJoined = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
@@ -219,6 +238,8 @@ function MobileBACard({
   onDelete,
   onViewDrivers,
   onViewDocs,
+  onViewBookings,
+  onViewDetails,
   onStatusChange,
 }: {
   ba: BA;
@@ -227,6 +248,8 @@ function MobileBACard({
   onDelete: (ba: BA) => void;
   onViewDrivers: (ba: BA) => void;
   onViewDocs: (ba: BA) => void;
+  onViewBookings: (ba: BA) => void;
+  onViewDetails: (ba: BA) => void;
   onStatusChange: (ba: BA, status: number) => void;
 }) {
   const { can } = usePermissions();
@@ -305,6 +328,12 @@ function MobileBACard({
               </a>
               <button onClick={() => onViewDrivers(ba)} title="View Captains" style={{ background: '#ede9fe', border: '1px solid #ddd6fe', color: '#6d28d9', padding: '7px 10px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600 }}>
                 <Users size={13} /> Captains
+              </button>
+              <button onClick={() => onViewDetails(ba)} title="View Details" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '7px', borderRadius: '8px', cursor: 'pointer', display: 'flex' }}>
+                <Eye size={14} />
+              </button>
+              <button onClick={() => onViewBookings(ba)} title="Booking History" style={{ background: '#eef2ff', border: '1px solid #c7d2fe', color: '#6366f1', padding: '7px', borderRadius: '8px', cursor: 'pointer', display: 'flex' }}>
+                <BookOpen size={14} />
               </button>
               <button onClick={() => onViewDocs(ba)} title="KYC Documents" style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#d97706', padding: '7px', borderRadius: '8px', cursor: 'pointer', display: 'flex' }}>
                 <FileText size={14} />
@@ -681,6 +710,23 @@ export default function BAList() {
     finally { setBookingsLoading(false); }
   };
 
+  // Booking History + View Details for a BA (same as the Captain list offers)
+  const [detailBA, setDetailBA] = useState<BA | null>(null);
+  const [historyBA, setHistoryBA] = useState<BA | null>(null);
+  const [baBookings, setBaBookings] = useState<BAHistoryBooking[]>([]);
+  const [baBookingsLoading, setBaBookingsLoading] = useState(false);
+
+  const openBABookings = async (ba: BA) => {
+    setHistoryBA(ba);
+    setBaBookings([]);
+    setBaBookingsLoading(true);
+    try {
+      const json = await apiGet(`/admin/business-associates/${ba.id}/bookings`);
+      setBaBookings(Array.isArray(json?.data) ? json.data : []);
+    } catch { setBaBookings([]); }
+    finally { setBaBookingsLoading(false); }
+  };
+
   const openBADocuments = async (ba: BA) => {
     setDocsBA(ba);
     setBaKyc(null);
@@ -916,6 +962,150 @@ export default function BAList() {
       )}
 
       {/* ── KYC Documents Modal ── */}
+      {/* ── BA: View Details ── */}
+      {detailBA && (
+        <div style={{ ...styles.overlay, zIndex: 1050 }}>
+          <div style={{ ...styles.modal, maxWidth: '440px' }}>
+            <div style={styles.modalHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <UserCheck size={18} color="#6d28d9" />
+                </div>
+                <div>
+                  <h3 style={styles.modalTitle}>{detailBA.ba_name}</h3>
+                  <p style={styles.modalSubtitle}>ID: #BA-00{detailBA.id}</p>
+                </div>
+              </div>
+              <button onClick={() => setDetailBA(null)} style={styles.iconBtn}><X size={16} /></button>
+            </div>
+            <div style={{ padding: '16px 20px' }}>
+              {([
+                ['Mobile', detailBA.ba_mobile || '—'],
+                ['Pincode', detailBA.pincode || '—'],
+                ['Wallet', fmtWallet(detailBA.wallet)],
+                ['Status', detailBA.status === 0 ? 'Inactive' : 'Active'],
+                ['KYC', getKycStatus(detailBA.kyc_status).label],
+                ['Services', detailBA.services?.length ? detailBA.services.map(sv => sv.service_name).join(', ') : 'No services'],
+                ['Joined', fmtJoined(detailBA.created_at)],
+              ] as [string, string][]).map(([label, value]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', padding: '9px 0', borderBottom: '1px solid #f1f5f9', fontSize: '13px' }}>
+                  <span style={{ color: '#94a3b8', fontWeight: 600 }}>{label}</span>
+                  <span style={{ color: '#1e293b', fontWeight: 600, textAlign: 'right' }}>{value}</span>
+                </div>
+              ))}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap' }}>
+                <button onClick={() => { openBABookings(detailBA); setDetailBA(null); }}
+                  style={{ flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid #c7d2fe', background: '#eef2ff', color: '#6366f1', fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                  <BookOpen size={14} /> Bookings
+                </button>
+                <button onClick={() => { openBADocuments(detailBA); setDetailBA(null); }}
+                  style={{ flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid #fde68a', background: '#fffbeb', color: '#d97706', fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                  <FileText size={14} /> KYC
+                </button>
+                <button onClick={() => { openBADrivers(detailBA); setDetailBA(null); }}
+                  style={{ flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid #ddd6fe', background: '#ede9fe', color: '#6d28d9', fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                  <Users size={14} /> Captains
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── BA: Booking History ── */}
+      {historyBA && (
+        <div style={{ ...styles.overlay, zIndex: 1050 }}>
+          <div style={{ ...styles.modal, maxWidth: '680px' }}>
+            <div style={styles.modalHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <BookOpen size={18} color="#6366f1" />
+                </div>
+                <div>
+                  <h3 style={styles.modalTitle}>Booking History</h3>
+                  <p style={styles.modalSubtitle}>{historyBA.ba_name} — #BA-00{historyBA.id}</p>
+                </div>
+              </div>
+              <button onClick={() => setHistoryBA(null)} style={styles.iconBtn}><X size={16} /></button>
+            </div>
+            <div style={{ padding: '16px', maxHeight: '64vh', overflowY: 'auto' }}>
+              {baBookingsLoading ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                  <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite', marginBottom: '8px' }} />
+                  <p style={{ margin: 0, fontSize: '13px' }}>Loading bookings...</p>
+                </div>
+              ) : baBookings.length === 0 ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No bookings found.</div>
+              ) : (
+                <>
+                  {(() => {
+                    const isDone = (b: BAHistoryBooking) => ['COMPLETED', 'DROPPED', 'BALANCE_PAID'].includes((b.status || '').toUpperCase());
+                    const completed = baBookings.filter(isDone).length;
+                    const amount = baBookings.filter(isDone).reduce((sum, b) => sum + (Number(b.total_fare ?? b.plan_price ?? 0) || 0), 0);
+                    return (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                        {[
+                          { label: 'Total Bookings', value: baBookings.length, bg: '#eff6ff', color: '#2563eb' },
+                          { label: 'Completed', value: completed, bg: '#f0fdf4', color: '#16a34a' },
+                          { label: 'Completed Amount', value: `₹${amount.toFixed(2)}`, bg: '#fdf4ff', color: '#7e22ce' },
+                        ].map(st => (
+                          <div key={st.label} style={{ background: st.bg, borderRadius: '12px', padding: '12px 16px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '18px', fontWeight: 800, color: st.color }}>{st.value}</div>
+                            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600, marginTop: '2px' }}>{st.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {baBookings.map(b => {
+                      const st = (b.status || '').toUpperCase();
+                      const done = ['COMPLETED', 'DROPPED', 'BALANCE_PAID'].includes(st);
+                      const cancelled = ['CANCELLED', 'REJECTED'].includes(st);
+                      const badge = done ? { bg: '#f0fdf4', color: '#16a34a' } : cancelled ? { bg: '#fff1f2', color: '#ef4444' } : { bg: '#fffbeb', color: '#d97706' };
+                      const amount = b.total_fare ?? b.balance_amount ?? b.plan_price ?? '—';
+                      return (
+                        <div key={b.id} style={{ background: '#f8fafc', borderRadius: '14px', padding: '14px 16px', border: '1.5px solid #f1f5f9', display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'flex-start' }}>
+                          <div style={{ minWidth: '90px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: '#6366f1' }}>{b.booking_id}</div>
+                            <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: 700, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                              <Calendar size={10} />{fmtJoined(b.created_at)}
+                            </div>
+                          </div>
+                          <div style={{ flex: 1, minWidth: '150px' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{b.user_name || '—'}</div>
+                            {b.user_mobile && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{b.user_mobile}</div>}
+                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', lineHeight: 1.5 }}>
+                              <div>Pickup: <b style={{ color: '#1e293b' }}>{b.pickup_city || '—'}</b></div>
+                              <div>Drop: <b style={{ color: '#1e293b' }}>{b.drop_city || '—'}</b></div>
+                              {b.to_city && /rental|driver/i.test(b.service_name || '') && (
+                                <div>To City: <b style={{ color: '#1e293b' }}>{b.to_city}</b></div>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                              {b.service_name || '—'}{b.plan_name ? ` · ${b.plan_name}` : ''}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Car size={10} color="#94a3b8" /> Captain: <b style={{ color: '#1e293b' }}>{b.driver_name || 'Not assigned'}</b>
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right', minWidth: '80px' }}>
+                            <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>₹{amount}</div>
+                            <div style={{ marginTop: '6px', display: 'inline-block', padding: '3px 8px', borderRadius: '20px', background: badge.bg, color: badge.color, fontSize: '10px', fontWeight: 700 }}>
+                              {st || '—'}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {docsBA && (
         <div style={{ ...styles.overlay, zIndex: 1050 }}>
           <div style={{ ...styles.modal, maxWidth: '620px' }}>
@@ -1146,6 +1336,14 @@ export default function BAList() {
                       style={{ width: '40px', height: '40px', background: '#dcfce7', border: '1px solid #bbf7d0', color: '#16a34a', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, textDecoration: 'none' }}>
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
                     </a>
+                    <button onClick={() => setDetailBA(ba)} title="View Details"
+                      style={{ width: '40px', height: '40px', background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Eye size={19} />
+                    </button>
+                    <button onClick={() => openBABookings(ba)} title="Booking History"
+                      style={{ width: '40px', height: '40px', background: '#eef2ff', border: '1px solid #c7d2fe', color: '#6366f1', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <BookOpen size={19} />
+                    </button>
                     <button onClick={() => openBADocuments(ba)} title="KYC Documents"
                       style={{ width: '40px', height: '40px', background: '#fffbeb', border: '1px solid #fde68a', color: '#d97706', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <FileText size={19} />
@@ -1181,6 +1379,8 @@ export default function BAList() {
               onDelete={setDeleteTarget}
               onViewDrivers={openBADrivers}
               onViewDocs={openBADocuments}
+              onViewBookings={openBABookings}
+              onViewDetails={setDetailBA}
               onStatusChange={handleStatusChange}
             />
           ))}
