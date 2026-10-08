@@ -66,6 +66,9 @@ export const deleteBussinessAssociate  = (id: number)               => API.delet
 export const getAllBookinghistory    = (params?: Record<string, unknown>) => API.get('all/bookinghistory', { params });
 export const getBookingTopups        = (id: string | number)              => API.get(`/admin/bookings/${id}/topups`);
 export const getAdminNotifications   = () => API.get('/admin/admin-notifications');
+// Web push: this browser's FCM token, so admin notifications reach it when the panel is closed
+export const registerAdminPushToken  = (token: string) => API.post('/admin/push-token', { token });
+export const removeAdminPushToken    = (token: string) => API.delete('/admin/push-token', { data: { token } });
 export const getBookingRejections    = () => API.get('/admin/booking-rejections');
 export const getAllDriverDocuments   = () => API.get('/admin/driver-documents');
 export const getSelfSharingTrips    = (params?: Record<string, unknown>) => API.get('/admin/selfsharing/trips', { params });

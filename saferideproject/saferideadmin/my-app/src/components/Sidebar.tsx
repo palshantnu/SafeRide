@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { logout } from "../utils/auth";
+import { disableAdminPush } from "../services/push";
 import {
   LayoutDashboard, Users, Car, Briefcase, Wrench, ListTree,
   BadgeDollarSign, UserCog, CalendarCheck, ShieldCheck,
@@ -64,7 +65,9 @@ export default function Sidebar({ active, setActive, onClose }: SidebarProps) {
   const location = useLocation();
   const { can } = usePermissions();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // stop admin pushes to this browser before the session token is dropped
+    await disableAdminPush();
     logout();
     // Full reload clears all in-memory auth/permission state.
     window.location.href = '/login';

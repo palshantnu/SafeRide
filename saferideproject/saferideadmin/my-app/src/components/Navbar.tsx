@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { getAdminNotifications, updateAdminProfile } from "../services/api";
 import { usePermissions } from "../context/PermissionsContext";
+import { enableAdminPush, pushConfigured, pushSupported } from "../services/push";
 
 interface NavbarProps {
   onMenuClick: () => void;
@@ -122,6 +123,34 @@ function fmtTime(ts: number): string {
   return new Date(ts).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 }
 
+// Short two-note chime for a newly arrived notification — like a phone's push sound.
+// Synthesised with Web Audio so no sound file is needed. Browsers only allow audio after
+// the admin has interacted with the page at least once; until then this stays silent.
+let chimeCtx: AudioContext | null = null;
+function playNotificationChime() {
+  try {
+    const Ctx = window.AudioContext
+      || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    if (!chimeCtx) chimeCtx = new Ctx();
+    const ctx = chimeCtx;
+    if (ctx.state === 'suspended') void ctx.resume();
+    [{ freq: 880, at: 0 }, { freq: 1174.66, at: 0.16 }].forEach(({ freq, at }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const start = ctx.currentTime + at;
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.45);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.5);
+    });
+  } catch { /* audio not available — ignore */ }
+}
+
 // ─── Navbar ───────────────────────────────────────────────────────────────────
 export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: NavbarProps) {
   const navigate = useNavigate();
@@ -139,6 +168,8 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
   const avatarChar  = (displayName.trim()[0] || 'A').toUpperCase();
   const seenRef    = useRef<Record<string, Set<string>>>({});
   const initDone   = useRef(false);
+  // ids already shown, so a poll can tell which notifications are new
+  const knownIds   = useRef<Set<string>>(new Set());
   const dropRef    = useRef<HTMLDivElement>(null);
 
   const unread = notifs.filter(n => !n.read).length;
@@ -180,9 +211,40 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
       });
 
       setNotifs(mapped.slice(0, 60));
+      // play the chime when a poll brings something new (not on the first load)
+      const hasNew = mapped.some(n => !knownIds.current.has(n.id));
+      if (initDone.current && hasNew) playNotificationChime();
+      mapped.forEach(n => knownIds.current.add(n.id));
       if (!initDone.current) initDone.current = true;
     } catch { /* silent */ }
   }, []);
+
+  // ── Web push (alerts even when the panel / browser is closed) ───────────
+  // 'ask' → show the "Enable alerts" button; anything else → nothing to offer.
+  const [pushPrompt, setPushPrompt] = useState<'ask' | 'hidden'>('hidden');
+  const [pushBusy, setPushBusy]     = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      if (!pushConfigured() || !(await pushSupported())) return;
+      if (Notification.permission === 'granted') void enableAdminPush();   // keep the token fresh
+      else if (Notification.permission === 'default') setPushPrompt('ask');
+    })();
+
+    // a push arrived while this tab is open → refresh the list now (poll plays the chime)
+    const onSwMessage = (e: MessageEvent) => { if (e.data?.source === 'admin-push') void poll(); };
+    navigator.serviceWorker?.addEventListener('message', onSwMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', onSwMessage);
+  }, [poll]);
+
+  const handleEnablePush = async () => {
+    setPushBusy(true);
+    const state = await enableAdminPush();
+    setPushBusy(false);
+    setPushPrompt('hidden');
+    if (state === 'denied') alert('Notifications are blocked for this site. Allow them in your browser settings to get alerts.');
+    else if (state !== 'enabled') alert('Could not enable notifications on this device.');
+  };
 
   useEffect(() => {
     poll();
@@ -353,6 +415,19 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
                   )}
                 </div>
               </div>
+
+              {/* One-time prompt: get alerts on this device even when the panel is closed */}
+              {pushPrompt === 'ask' && (
+                <div style={{ padding: "10px 16px", background: "#eef2ff", borderBottom: "1px solid #e0e7ff", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexShrink: 0 }}>
+                  <div style={{ fontSize: 11.5, color: "#3730a3", fontWeight: 600, lineHeight: 1.35 }}>
+                    Get alerts on this device even when the admin panel is closed.
+                  </div>
+                  <button onClick={handleEnablePush} disabled={pushBusy}
+                    style={{ background: "#6366f1", color: "white", border: "none", borderRadius: 8, padding: "6px 10px", cursor: pushBusy ? "default" : "pointer", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", opacity: pushBusy ? 0.7 : 1 }}>
+                    {pushBusy ? 'Enabling…' : 'Enable alerts'}
+                  </button>
+                </div>
+              )}
 
               {/* List */}
               <div style={{ overflowY: "auto", flex: 1 }}>

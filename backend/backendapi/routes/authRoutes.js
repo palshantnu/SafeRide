@@ -407,6 +407,8 @@ router.put('/admin/notifications/:id', uploadNotification.single('image'), notif
 router.patch('/admin/notifications/:id/status', notificationController.toggleNotificationStatus);
 router.delete('/admin/notifications/:id', notificationController.deleteNotification);
 router.get('/admin/admin-notifications', adminNotificationController.getAdminNotifications);
+router.post('/admin/push-token', verifyToken, adminNotificationController.registerPushToken);
+router.delete('/admin/push-token', verifyToken, adminNotificationController.removePushToken);
 
 //-------------------------------------------------Driver Rating & Review---------------------------------------------------//
 router.post('/user/driver/rating', verifyToken, ratingController.submitDriverReview);   // user rates the captain (ride)
