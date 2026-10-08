@@ -3,7 +3,7 @@ import {
   Search, ChevronLeft, ChevronRight,
   CheckCircle2, X, MapPin, User,
   Car, Calendar, Hash, RefreshCw, Filter, Phone,
-  ShoppingBag, XCircle, Activity, Eye, Navigation, Zap,
+  ShoppingBag, XCircle, Activity, Eye, Zap,
 } from 'lucide-react';
 import { getAllBookinghistory, getBookingTopups } from '../../services/api';
 
@@ -587,17 +587,17 @@ export default function BookingHistory() {
 
                       {/* Route */}
                       <td style={{ padding: '12px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
-                          <Navigation size={10} color="#94a3b8" />
-                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{b.pickup_city}</span>
-                          <span style={{ color: '#c7d2fe' }}>→</span>
-                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{b.drop_city}</span>
-                        </div>
-                        {showsToCity(b) && (
-                          <div style={{ fontSize: '11px', color: '#6366f1', fontWeight: 600, marginTop: '2px', whiteSpace: 'nowrap' }}>
-                            To City: {b.to_city}
+                        {/* Pickup / Drop / To City, each as "label: value" on its own line */}
+                        {[
+                          { label: 'Pickup', value: b.pickup_city },
+                          { label: 'Drop', value: b.drop_city },
+                          ...(showsToCity(b) ? [{ label: 'To City', value: b.to_city }] : []),
+                        ].map(r => (
+                          <div key={r.label} style={{ fontSize: '12px', whiteSpace: 'nowrap', lineHeight: 1.5 }}>
+                            <span style={{ color: '#94a3b8', fontWeight: 500 }}>{r.label}: </span>
+                            <span style={{ fontWeight: 600, color: '#1e293b' }}>{r.value || '—'}</span>
                           </div>
-                        )}
+                        ))}
                         <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>
                           {b.person} person{b.person > 1 ? 's' : ''}
                           {b.distance ? ` · ${b.distance} km` : ''}

@@ -7,7 +7,7 @@ import {
 import {
   ArrowUpRight, Users, Car, Briefcase, ShoppingCart,
   Activity, Search, X, ChevronLeft, ChevronRight,
-  CheckCircle2, Clock, AlertCircle, RefreshCw, MapPin,
+  CheckCircle2, Clock, AlertCircle, RefreshCw,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -240,18 +240,18 @@ function RecentBookingsTable({ bookings, loading, globalSearch }: { bookings: Bo
                       {b.sub_service_name && <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 1 }}>{b.sub_service_name}</div>}
                     </td>
                     <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#64748b" }}>
-                        <MapPin size={10} color="#94a3b8" />
-                        {b.pickup_city || "—"}
-                        <span style={{ color: "#cbd5e1" }}>→</span>
-                        {b.drop_city || "—"}
-                      </div>
-                      {/* Rental and Driver bookings also carry a destination city */}
-                      {b.to_city && /rental|driver/i.test(b.service_name || "") && (
-                        <div style={{ fontSize: 11, color: "#6366f1", fontWeight: 600, marginTop: 2 }}>
-                          To City: {b.to_city}
+                      {/* Pickup / Drop / To City, each as "label: value" on its own line.
+                          Rental and Driver bookings also carry a destination city. */}
+                      {[
+                        { label: "Pickup", value: b.pickup_city },
+                        { label: "Drop", value: b.drop_city },
+                        ...(b.to_city && /rental|driver/i.test(b.service_name || "") ? [{ label: "To City", value: b.to_city }] : []),
+                      ].map(r => (
+                        <div key={r.label} style={{ fontSize: 11, lineHeight: 1.5 }}>
+                          <span style={{ color: "#94a3b8" }}>{r.label}: </span>
+                          <span style={{ color: "#1e293b", fontWeight: 600 }}>{r.value || "—"}</span>
                         </div>
-                      )}
+                      ))}
                     </td>
                     <td style={{ padding: "12px 16px", fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap" }}>
                       {b.total_fare ? `₹${parseFloat(b.total_fare).toFixed(2)}` : b.plan_price ? `₹${b.plan_price}` : "—"}
