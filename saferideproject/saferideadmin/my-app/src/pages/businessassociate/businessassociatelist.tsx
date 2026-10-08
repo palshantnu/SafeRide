@@ -135,6 +135,9 @@ const getKycStatus = (s?: string | null) =>
   KYC_STATUS[(s || 'pending').toLowerCase()] || KYC_STATUS.pending;
 
 // Small inline badge for the list (handles "not submitted" = null/empty/'not_uploaded')
+const fmtJoined = (d?: string | null) =>
+  d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
 const fmtWallet = (w?: number | string | null) => `₹${(Number(w) || 0).toFixed(2)}`;
 
 function KycBadge({ status }: { status?: string | null }) {
@@ -267,6 +270,8 @@ function MobileBACard({
           </div>
 
           <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Date</span>
+            <span style={{ fontSize: '12px', color: '#1e293b', fontWeight: 700, marginRight: '10px' }}>{fmtJoined(ba.created_at)}</span>
             <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Wallet</span>
             <span style={{ fontSize: '13px', fontWeight: 700, color: Number(ba.wallet) < 0 ? '#dc2626' : '#16a34a' }}>{fmtWallet(ba.wallet)}</span>
           </div>
@@ -797,7 +802,7 @@ export default function BAList() {
                             {b.drop_city || b.drop || '—'}
                           </div>
                           {b.created_at && (
-                            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: 700, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                               <Calendar size={10} /> {new Date(b.created_at).toLocaleDateString('en-IN')}
                             </div>
                           )}
@@ -1052,14 +1057,14 @@ export default function BAList() {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #f1f5f9' }}>
-              {['#', 'Partner Name', 'Mobile','Pincode', 'Services', 'Wallet', 'Status', 'KYC', 'Captains', 'Actions'].map((h) => (
+              {['#', 'Partner Name', 'Mobile','Pincode', 'Services', 'Wallet', 'Status', 'KYC', 'Captains', 'Date', 'Actions'].map((h) => (
                 <th key={h} style={{ padding: '12px 16px', fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={10} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>Loading...</td></tr>}
-            {!loading && fetchError && <tr><td colSpan={10} style={{ padding: '40px', textAlign: 'center', color: '#ef4444', fontSize: '13px' }}>{fetchError}</td></tr>}
+            {loading && <tr><td colSpan={11} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>Loading...</td></tr>}
+            {!loading && fetchError && <tr><td colSpan={11} style={{ padding: '40px', textAlign: 'center', color: '#ef4444', fontSize: '13px' }}>{fetchError}</td></tr>}
             {!loading && !fetchError && paginatedBA.map((ba, index) => (
               <tr key={ba.id} style={{ borderBottom: '1px solid #f1f5f9' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = '#fafbff'; }}
@@ -1128,6 +1133,9 @@ export default function BAList() {
                     <Users size={13} /> Captains
                   </button>
                 </td>
+                <td style={{ padding: '13px 16px', whiteSpace: 'nowrap', fontSize: '12px', color: '#1e293b', fontWeight: 700 }}>
+                  {fmtJoined(ba.created_at)}
+                </td>
                 <td style={{ padding: '13px 16px', whiteSpace: 'nowrap' }}>
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <a href={`tel:${ba.ba_mobile}`} title="Call"
@@ -1155,7 +1163,7 @@ export default function BAList() {
               </tr>
             ))}
             {!loading && !fetchError && paginatedBA.length === 0 && (
-              <tr><td colSpan={10} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No associates found.</td></tr>
+              <tr><td colSpan={11} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No associates found.</td></tr>
             )}
           </tbody>
         </table>

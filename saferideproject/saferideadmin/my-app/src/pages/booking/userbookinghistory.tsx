@@ -291,9 +291,9 @@ export default function UserBookingHistory() {
                         </div>
                       </td>
 
-                      <td style={{ padding: '12px 16px', fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '12px 16px', fontSize: '12px', color: '#1e293b', fontWeight: 700, whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Calendar size={12} />{formatDate(b.travel_date)}</div>
-                        <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Booked: {formatDate(b.booking_date)}</div>
+                        <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: 600, marginTop: '2px' }}>Booked: {formatDate(b.booking_date)}</div>
                       </td>
 
                       <td style={{ padding: '12px 16px' }}>

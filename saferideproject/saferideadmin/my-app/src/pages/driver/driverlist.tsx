@@ -500,7 +500,7 @@ export default function DriverList() {
             {/* Joined */}
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '13px', borderBottom: '1px solid #eef2f7' }}>
               <span style={{ color: '#64748b', fontWeight: 600 }}>🗓️ Joined</span>
-              <span style={{ color: '#1e293b', fontWeight: 500 }}>{formatDate(driver.created_at)}</span>
+              <span style={{ color: '#1e293b', fontWeight: 700 }}>{formatDate(driver.created_at)}</span>
             </div>
             {/* Status */}
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: '13px', borderBottom: '1px solid #eef2f7' }}>
@@ -607,7 +607,7 @@ export default function DriverList() {
                   <div key={b.id} style={{ background: '#f8fafc', borderRadius: '14px', padding: '14px 16px', border: '1.5px solid #f1f5f9', display: 'flex', flexWrap: 'wrap', gap: '14px', alignItems: 'flex-start' }}>
                     <div style={{ minWidth: '90px' }}>
                       <div style={{ fontSize: '12px', fontWeight: 700, color: '#6366f1' }}>{b.booking_id}</div>
-                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <div style={{ fontSize: '11px', color: '#1e293b', fontWeight: 700, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                         <Calendar size={10} />{createdAt}
                       </div>
                     </div>
@@ -954,7 +954,7 @@ export default function DriverList() {
                             <option value="rejected">Rejected</option>
                           </select>
                         </td>
-                        <td style={{ padding: '14px 16px', fontSize: '12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(driver.created_at)}</td>
+                        <td style={{ padding: '14px 16px', fontSize: '12px', color: '#1e293b', fontWeight: 700, whiteSpace: 'nowrap' }}>{formatDate(driver.created_at)}</td>
                         <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                           <div style={{ display: 'flex', gap: '5px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                             <a href={`tel:${driver.phone}`} title="Call" style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#475569', padding: '7px', borderRadius: '9px', display: 'flex', textDecoration: 'none' }}>

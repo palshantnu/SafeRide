@@ -412,7 +412,7 @@ export default function AccountList() {
                           <div style={{ fontSize: '10px', color: '#94a3b8' }}>{b.sub_service_name}</div>
                         )}
                       </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'center', fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDate(b.created_at)}</td>
+                      <td style={{ padding: '12px 14px', textAlign: 'center', fontSize: '11px', color: '#1e293b', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtDate(b.created_at)}</td>
                       <td style={{ padding: '12px 14px' }}>
                         <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{b.user_name || '—'}</div>
                         <div style={{ fontSize: '10px', color: isLowBalance(b.user_wallet) ? '#ef4444' : '#94a3b8', fontWeight: isLowBalance(b.user_wallet) ? 700 : 400 }}>

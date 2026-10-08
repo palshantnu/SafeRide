@@ -288,7 +288,7 @@ export default function OnSpotHistory() {
                     </td>
                     <td style={{ padding: '11px 14px', fontSize: 12, color: '#64748b' }}>{b.sub_service_name || '—'}</td>
                     <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 700, color: '#4338ca' }}>{fmtAmt(b.total_fare || b.total_amount || b.plan_price)}</td>
-                    <td style={{ padding: '11px 14px', fontSize: 12, color: '#64748b' }}>
+                    <td style={{ padding: '11px 14px', fontSize: 12, color: '#1e293b', fontWeight: 700 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Calendar size={11} />{fmtDate(b.schedule_date || b.schedule_datetime || b.created_at)}
                       </div>

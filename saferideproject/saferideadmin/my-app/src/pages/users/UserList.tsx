@@ -287,7 +287,7 @@ function UserBookingsModal({ user, onClose }: { user: User; onClose: () => void 
                   <div key={b.id} style={{ background: '#f8fafc', borderRadius: 12, padding: '12px 16px', border: '1.5px solid #f1f5f9', display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap' }}>
                     <div style={{ minWidth: 110 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: '#6366f1' }}>{b.booking_id || `#${b.id}`}</div>
-                      <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{fmt(b.created_at)}</div>
+                      <div style={{ fontSize: 10, color: '#1e293b', fontWeight: 700, marginTop: 2 }}>{fmt(b.created_at)}</div>
                     </div>
                     <div style={{ flex: 1, minWidth: 140 }}>
                       <div style={{ fontSize: 12, fontWeight: 600, color: '#1e293b' }}>{b.service_name || '—'}{b.sub_service_name ? ` · ${b.sub_service_name}` : ''}</div>
@@ -495,7 +495,7 @@ export default function UserList() {
                         {user.status === 1 ? 'Active' : 'Inactive'}
                       </div>
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: '12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>{formatDate(user.created_at)}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '12px', color: '#1e293b', fontWeight: 700, whiteSpace: 'nowrap' }}>{formatDate(user.created_at)}</td>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <a href={`tel:${user.mobile}`} title="Call" style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', color: '#475569', padding: '6px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}><Phone size={13} /></a>

@@ -461,7 +461,7 @@ function BookingsTab() {
                     </div>
                   </td>
                   <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 700, color: '#059669' }}>{fmtAmt(b.total_fare || b.plan_price)}</td>
-                  <td style={{ padding: '11px 14px', fontSize: 12, color: '#64748b' }}>{fmtDate(b.created_at)}</td>
+                  <td style={{ padding: '11px 14px', fontSize: 12, color: '#1e293b', fontWeight: 700 }}>{fmtDate(b.created_at)}</td>
                   <td style={{ padding: '11px 14px' }}>
                     {b.ride_started_at
                       ? <span style={{ fontSize: 11, color: '#166534', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtDateTime(b.ride_started_at)}</span>

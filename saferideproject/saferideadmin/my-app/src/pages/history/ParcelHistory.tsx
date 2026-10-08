@@ -292,7 +292,7 @@ export default function ParcelHistory() {
                     </td>
                     <td style={{ padding: '11px 14px', fontSize: 12, color: '#64748b' }}>{b.sub_service_name || '—'}</td>
                     <td style={{ padding: '11px 14px', fontSize: 13, fontWeight: 700, color: '#c2410c' }}>{fmtAmt(b.total_fare || b.amount || b.plan_price)}</td>
-                    <td style={{ padding: '11px 14px', fontSize: 12, color: '#64748b' }}>
+                    <td style={{ padding: '11px 14px', fontSize: 12, color: '#1e293b', fontWeight: 700 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Calendar size={11} />{fmtDate(b.schedule_date || b.pickup_date || b.created_at)}
                       </div>
