@@ -2,10 +2,11 @@ const db = require("../config/db");
 const { getAdminNotifications, saveAdminPushToken, removeAdminPushToken } = require("../services/adminNotification");
 
 // Admin notifications must only reach admin-panel logins. verifyToken also accepts app
-// tokens, so check: a driver token has role "driver", a BA token has no role at all, and
-// an app user is a `users` row with role "user" and no staff role.
+// tokens, so rule those out: a driver token carries role "driver", a BA token carries
+// `mobile` (the admin panel's own login token is just { id }), and an app user is a
+// `users` row with role "user" and no staff role.
 const isAdminPanelUser = async (req) => {
-  if (!req.user?.id || !('role' in req.user) || req.user.role === 'driver') return false;
+  if (!req.user?.id || req.user.role === 'driver' || 'mobile' in req.user) return false;
   const [[user]] = await db.query(`SELECT role, role_id FROM users WHERE id = ?`, [req.user.id]);
   if (!user) return false;
   return !!user.role_id || (!!user.role && String(user.role).toLowerCase() !== 'user');
