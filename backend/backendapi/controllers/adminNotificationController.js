@@ -7,9 +7,12 @@ const { getAdminNotifications, saveAdminPushToken, removeAdminPushToken } = requ
 // `users` row with role "user" and no staff role.
 const isAdminPanelUser = async (req) => {
   if (!req.user?.id || req.user.role === 'driver' || 'mobile' in req.user) return false;
-  const [[user]] = await db.query(`SELECT role, role_id FROM users WHERE id = ?`, [req.user.id]);
+  const [[user]] = await db.query(`SELECT role, role_id, password FROM users WHERE id = ?`, [req.user.id]);
   if (!user) return false;
-  return !!user.role_id || (!!user.role && String(user.role).toLowerCase() !== 'user');
+  if (String(user.role || '').toLowerCase() === 'user') return false;
+  // staff role, an admin-type role, or (super admin rows may have neither — see
+  // adminStaffController.getMe) an email/password login, which app users don't have
+  return !!user.role_id || !!user.role || !!user.password;
 };
 
 exports.getAdminNotifications = async (req, res) => {
