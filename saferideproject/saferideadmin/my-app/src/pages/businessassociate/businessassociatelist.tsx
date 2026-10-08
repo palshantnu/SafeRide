@@ -6,6 +6,7 @@ import {
   Calendar, Clock, CheckCircle, XCircle, MapPin, Users,
   FileText, ShieldCheck, Download, Eye
 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { usePermissions } from '../../context/PermissionsContext';
 
 const BASE_URL = import.meta.env.VITE_API_URL|| "https://sigiride.com/api";
@@ -685,6 +686,18 @@ export default function BAList() {
     } catch { setBaKyc(null); }
     finally { setDocsLoading(false); }
   };
+
+  // Opened from a KYC notification (?kyc=<ba id>): show that BA's KYC documents.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const kycParam = searchParams.get('kyc');
+  useEffect(() => {
+    if (!kycParam || loading) return;
+    const id = Number(kycParam);
+    const ba = baList.find(b => Number(b.id) === id)
+      ?? ({ id, ba_name: `Business Associate #${id}`, ba_mobile: '', pincode: '' } as BA);
+    openBADocuments(ba);
+    setSearchParams({}, { replace: true });
+  }, [kycParam, loading, baList]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleVerifyKyc = async (newStatus: 'approved' | 'rejected' | 'pending') => {
     if (!docsBA) return;

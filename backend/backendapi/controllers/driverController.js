@@ -1950,7 +1950,16 @@ exports.driverList = async (req, res) => {
                 d.status,
                 d.ba_id,
                 d.is_online,
-                d.created_at
+                d.created_at,
+                -- overall KYC state from the driver's documents (0 pending, 1 verified, 2 rejected):
+                -- anything still awaiting review → pending; otherwise any rejected → rejected;
+                -- all verified → approved
+                CASE
+                    WHEN NOT EXISTS (SELECT 1 FROM driver_documents dd WHERE dd.driver_id = d.id) THEN 'not_uploaded'
+                    WHEN EXISTS (SELECT 1 FROM driver_documents dd WHERE dd.driver_id = d.id AND COALESCE(dd.status, 0) = 0) THEN 'pending'
+                    WHEN EXISTS (SELECT 1 FROM driver_documents dd WHERE dd.driver_id = d.id AND dd.status = 2) THEN 'rejected'
+                    ELSE 'approved'
+                END AS kyc_status
             FROM drivers d
             LEFT JOIN services s ON s.id = d.service_id
             LEFT JOIN sub_services ss ON ss.id = d.sub_service_id

@@ -38,6 +38,33 @@ interface NotificationItem {
   sub: string;
   time: number;
   read: boolean;
+  // For KYC notifications: the driver / Business Associate whose documents to open.
+  kycId?: number;
+}
+
+const KYC_TYPES: NType[] = [
+  'ba_kyc_pending', 'ba_kyc_rejected', 'ba_kyc_approved',
+  'driver_kyc_pending', 'driver_kyc_rejected', 'driver_kyc_verified',
+];
+
+// The API returns `payload` as JSON (object, or a string on some MySQL drivers).
+function readPayload(raw: unknown): Record<string, unknown> {
+  if (raw && typeof raw === 'object') return raw as Record<string, unknown>;
+  if (typeof raw === 'string') { try { return JSON.parse(raw) || {}; } catch { return {}; } }
+  return {};
+}
+
+// Whose KYC a notification is about. Only the "driver uploaded" notification stores the
+// driver id as source_id; every other KYC one keeps the owner in the payload.
+function kycOwnerId(item: Record<string, unknown>): number | undefined {
+  const type = item.type as NType;
+  if (!KYC_TYPES.includes(type)) return undefined;
+  const payload = readPayload(item.payload);
+  const id = type.startsWith('ba_')
+    ? payload.ba_id
+    : (payload.driver_id ?? (type === 'driver_kyc_pending' ? item.source_id : undefined));
+  const n = Number(id);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -148,6 +175,7 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
           sub: String(item.sub || ''),
           time: new Date(String(item.created_at)).getTime() || Date.now(),
           read: seen.admin_notif.has(id),
+          kycId: kycOwnerId(item),
         };
       });
 
@@ -195,7 +223,9 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
     markRead(n.id);
     setOpen(false);
     const route = TYPE_ROUTE[n.type];
-    if (route) navigate(route);
+    if (!route) return;
+    // KYC notifications open that person's KYC documents directly on the list page.
+    navigate(n.kycId ? `${route}?kyc=${n.kycId}` : route);
   };
 
   const handleProfileSave = async () => {

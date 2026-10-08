@@ -6,6 +6,7 @@ import {
   Image, Download, Eye, ShieldCheck, BookOpen, Wallet, Menu, Briefcase
 } from 'lucide-react';
 import { getAllDrivers, deleteDriver, updateDriver, createDriver, getDriverBookings, getDriverDocuments, verifyDriverDocument, getAllServices, getSubByServiceId, getAllSubServices } from "../../services/api";
+import { useSearchParams } from "react-router-dom";
 import { usePermissions } from "../../context/PermissionsContext";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -26,7 +27,13 @@ interface Driver {
   business_name?: string | null;
   business_associate_name?: string | null;
   created_at?: string | null;
+  kyc_status?: string | null; // 'not_uploaded' | 'pending' | 'approved' | 'rejected'
 }
+
+// Captain name colour by KYC: red while documents are waiting for review, green once
+// approved, black otherwise.
+const kycNameColor = (kyc?: string | null) =>
+  kyc === 'pending' ? '#dc2626' : kyc === 'approved' ? '#16a34a' : '#000';
 
 interface Booking {
   id: number;
@@ -283,6 +290,18 @@ export default function DriverList() {
     finally { setDocsLoading(false); }
   };
 
+  // Opened from a KYC notification (?kyc=<driver id>): show that driver's KYC documents.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const kycParam = searchParams.get('kyc');
+  useEffect(() => {
+    if (!kycParam || loading) return;
+    const id = Number(kycParam);
+    const driver = drivers.find(d => Number(d.id) === id)
+      ?? ({ id, full_name: `Driver #${id}` } as Driver);
+    openDocuments(driver);
+    setSearchParams({}, { replace: true });
+  }, [kycParam, loading, drivers]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleVerifyDoc = async (doc: DriverDocument, newStatus: number) => {
     if (!docDriver) return;
     setVerifyingDocId(doc.id);
@@ -292,7 +311,14 @@ export default function DriverList() {
         verified_by: 1,
         remark: 'Document OK',
       });
-      setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, status: newStatus } : d));
+      const updatedDocs = documents.map(d => d.id === doc.id ? { ...d, status: newStatus } : d);
+      setDocuments(updatedDocs);
+      // keep the captain's name colour in the list in step with the documents just reviewed
+      const statuses = updatedDocs.map(d => Number(d.status) || 0);
+      const kyc = statuses.length === 0 ? 'not_uploaded'
+        : statuses.includes(0) ? 'pending'
+        : statuses.includes(2) ? 'rejected' : 'approved';
+      setDrivers(prev => prev.map(d => d.id === docDriver.id ? { ...d, kyc_status: kyc } : d));
     } catch {
       alert(newStatus === 1 ? 'Document verify karne mein error aaya' : 'Verification cancel karne mein error aaya');
     } finally {
@@ -434,7 +460,7 @@ export default function DriverList() {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>{driver.full_name || '—'}</span>
+              <span style={{ fontSize: '15px', fontWeight: 700, color: kycNameColor(driver.kyc_status) }}>{driver.full_name || '—'}</span>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '12px', fontSize: '9px', fontWeight: 700, background: driver.is_online ? '#dcfce7' : '#f1f5f9', color: driver.is_online ? '#166534' : '#64748b' }}>
                 <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: driver.is_online ? '#22c55e' : '#94a3b8' }} />
                 {driver.is_online ? 'ON DUTY' : 'OFFLINE'}
@@ -878,7 +904,7 @@ export default function DriverList() {
                               <Car size={18} color="#3b82f6" />
                             </div>
                             <div>
-                              <div style={{ fontSize: '13px', fontWeight: 600, color: '#000' }}>{driver.full_name || '—'}</div>
+                              <div style={{ fontSize: '13px', fontWeight: 600, color: kycNameColor(driver.kyc_status) }}>{driver.full_name || '—'}</div>
                               <div style={{ fontSize: '11px', color: '#000' }}>ID: #CAP-00{driver.id}</div>
                             </div>
                           </div>
