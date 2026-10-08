@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Search, ChevronLeft, ChevronRight, RefreshCw, Filter, X,
-  IndianRupee, Wallet, XCircle, CheckCircle2, Banknote,
+  IndianRupee, Wallet, XCircle, CheckCircle2, Banknote, CreditCard, Clock, Download, Ban,
 } from 'lucide-react';
 import { getAllBookinghistory, getSelfSharingBookings, getParcelBookings, getOnSpotBookings, getAllServices } from '../../services/api';
 
@@ -38,6 +38,7 @@ interface MoneyBooking {
   collected_total: number;
   due_amount: number;
   is_incity: boolean;
+  service_id: number | null;
   user_name: string | null;
   user_mobile: string | null;
   user_wallet: string | number | null;
@@ -113,6 +114,7 @@ const mapRide = (raw: RawRow): MoneyBooking => ({
   captain_amount: Number(raw.captain_amount ?? 0),
   ...collectedOf(raw, Number(raw.total_amount ?? 0), Number(raw.paid ?? 0), (raw.payment_mode as string | null) ?? null),
   is_incity: Number(raw.service_id) === 1,
+  service_id: raw.service_id != null ? Number(raw.service_id) : null,
   user_name: raw.user_name as string | null,
   user_mobile: raw.user_mobile as string | null,
   user_wallet: raw.user_wallet as string | number | null,
@@ -146,6 +148,7 @@ const mapGeneric = (raw: RawRow, module: Module, fallbackLabel: string): MoneyBo
   captain_amount: Number(raw.captain_amount ?? 0),
   ...collectedOf(raw, Number(raw.total_amount ?? 0), Number(raw.paid ?? 0), (raw.payment_mode as string | null) ?? null),
   is_incity: Number(raw.service_id) === 1,
+  service_id: raw.service_id != null ? Number(raw.service_id) : null,
   user_name: raw.user_name as string | null,
   user_mobile: raw.user_mobile as string | null,
   user_wallet: raw.user_wallet as string | number | null,
@@ -263,9 +266,19 @@ export default function AccountList() {
     { key: 'ONSPOT', label: 'On Spot' },
   ], [services]);
 
+  // Self Sharing and Inter City bookings come from the same API. When the booking's own
+  // service has a tab (e.g. "Inter city"), it belongs there instead of under "Self Sharing".
+  const serviceTabKeys = useMemo(() => new Set(services.map(sv => sv.key)), [services]);
+  const tabOf = useCallback((b: MoneyBooking) => {
+    if (b.module === 'SELF_SHARING' && b.service_id != null && serviceTabKeys.has(`SVC_${b.service_id}`)) {
+      return `SVC_${b.service_id}`;
+    }
+    return b.tabKey;
+  }, [serviceTabKeys]);
+
   const tabScoped = useMemo(
-    () => activeTab === 'ALL' ? allBookings : allBookings.filter(b => b.tabKey === activeTab),
-    [allBookings, activeTab]
+    () => activeTab === 'ALL' ? allBookings : allBookings.filter(b => tabOf(b) === activeTab),
+    [allBookings, activeTab, tabOf]
   );
 
   const statuses = useMemo(() => [...new Set(tabScoped.map(b => b.status))].sort(), [tabScoped]);
@@ -295,12 +308,14 @@ export default function AccountList() {
   const summary = useMemo(() => {
     let online = 0, cash = 0, due = 0, company = 0, captain = 0;
     let cancellationFee = 0, cancelledCount = 0, toRecover = 0;
+    let keptOnCancelled = 0, paidCount = 0, runningCount = 0;
     for (const b of filtered) {
       // every rupee received so far — tokens of running and cancelled bookings included
       online += b.collected_online || 0;
       cash   += b.collected_cash || 0;
       if (b.status === 'CANCELLED') {
         cancelledCount += 1;
+        keptOnCancelled += b.collected_total || 0;   // token etc. already taken before the cancel
         const fee = Number(b.cancellation_fee || 0);
         cancellationFee += fee;
         if (feeToRecover(b)) toRecover += fee;
@@ -309,13 +324,37 @@ export default function AccountList() {
         // Commission only on fully paid bookings — one still running hasn't earned anyone
         // its share yet.
         if (b.paid) {
+          paidCount += 1;
           company += b.company_amount || 0;
           captain += b.captain_amount || 0;
+        } else {
+          runningCount += 1;
         }
       }
     }
-    return { online, cash, net: online + cash, due, company, captain, cancellationFee, cancelledCount, toRecover };
+    return { online, cash, net: online + cash, due, company, captain, cancellationFee, cancelledCount, toRecover, keptOnCancelled, paidCount, runningCount };
   }, [filtered]);
+
+  // Download the rows currently shown (after tab + filters) as a CSV for Excel
+  const exportCsv = () => {
+    const head = ['Booking', 'Service', 'Date', 'User', 'User Mobile', 'Captain', 'Captain Mobile', 'Status',
+      'Total', 'Received', 'Online', 'Cash', 'Due', 'Company', 'Captain Share', 'Cancellation Charge', 'Cancelled By'];
+    const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lines = filtered.map(b => [
+      b.booking_id, b.service_name, fmtDate(b.created_at), b.user_name, b.user_mobile, b.driver_name, b.driver_mobile, b.status,
+      b.total_amount, b.collected_total, b.collected_online, b.collected_cash, b.due_amount,
+      b.status === 'CANCELLED' || !b.paid ? '' : b.company_amount,
+      b.status === 'CANCELLED' || !b.paid ? '' : b.captain_amount,
+      b.status === 'CANCELLED' ? (b.cancellation_fee ?? '') : '', b.status === 'CANCELLED' ? (b.cancelled_by ?? '') : '',
+    ].map(cell).join(','));
+    const blob = new Blob(['\ufeff' + [head.map(cell).join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `accounts-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const resetFilters = () => { setSearch(''); setPaymentFilter(''); setStatusFilter(''); setFromDate(''); setToDate(''); setPage(1); };
   const hasFilter = search || paymentFilter || statusFilter || fromDate || toDate;
@@ -343,11 +382,18 @@ export default function AccountList() {
               Money received, earnings &amp; cancellation charges · Showing <b>{filtered.length}</b> of <b>{tabScoped.length}</b>
             </p>
           </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={exportCsv} disabled={loading || filtered.length === 0}
+            style={{ background: 'white', border: '1.5px solid #e2e8f0', color: '#64748b', padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600 }}>
+            <Download size={13} />
+            Export CSV
+          </button>
           <button onClick={fetchAll} disabled={loading}
             style={{ background: 'white', border: '1.5px solid #e2e8f0', color: '#64748b', padding: '8px 14px', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600 }}>
             <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
             Refresh
           </button>
+          </div>
         </div>
 
         {/* ── Service Tabs ── */}
@@ -361,11 +407,14 @@ export default function AccountList() {
 
         {/* ── Stats Row ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-          <StatCard label="Total Collected"  value={fmtAmt(summary.net)}     sub={`Online ${fmtAmt(summary.online)} · Cash ${fmtAmt(summary.cash)}`} bg="#eef2ff" color="#6366f1" icon={<IndianRupee size={18} color="#6366f1" />} />
-          <StatCard label="Still To Come"    value={fmtAmt(summary.due)}     sub="Unpaid balance on running bookings" bg="#fef9c3" color="#a16207" icon={<Banknote size={18} color="#a16207" />} />
-          <StatCard label="Company Earning"  value={fmtAmt(summary.company)} sub="On fully paid bookings" bg="#d1fae5" color="#059669" icon={<CheckCircle2 size={18} color="#059669" />} />
-          <StatCard label="Captain Earning"  value={fmtAmt(summary.captain)} sub="On fully paid bookings" bg="#e0f2fe" color="#0369a1" icon={<Wallet size={18} color="#0369a1" />} />
+          <StatCard label="Total Collected"   value={fmtAmt(summary.net)}     sub="Online + Cash" bg="#eef2ff" color="#6366f1" icon={<IndianRupee size={18} color="#6366f1" />} />
+          <StatCard label="Online Collected"  value={fmtAmt(summary.online)}  sub="Tokens + online balance / topups" bg="#dbeafe" color="#2563eb" icon={<CreditCard size={18} color="#2563eb" />} />
+          <StatCard label="Cash Collected"    value={fmtAmt(summary.cash)}    sub="Taken in cash by captains" bg="#fef9c3" color="#a16207" icon={<Banknote size={18} color="#a16207" />} />
+          <StatCard label={`Still To Come (${summary.runningCount})`} value={fmtAmt(summary.due)} sub="Unpaid balance on running bookings" bg="#ffedd5" color="#c2410c" icon={<Clock size={18} color="#c2410c" />} />
+          <StatCard label={`Company Earning (${summary.paidCount})`}  value={fmtAmt(summary.company)} sub="On fully paid bookings" bg="#d1fae5" color="#059669" icon={<CheckCircle2 size={18} color="#059669" />} />
+          <StatCard label="Captain Earning"   value={fmtAmt(summary.captain)} sub="On fully paid bookings" bg="#e0f2fe" color="#0369a1" icon={<Wallet size={18} color="#0369a1" />} />
           <StatCard label={`Cancellation Charges (${summary.cancelledCount})`} value={fmtAmt(summary.cancellationFee)} sub={`To collect from users ${fmtAmt(summary.toRecover)}`} bg="#fee2e2" color="#dc2626" icon={<XCircle size={18} color="#dc2626" />} />
+          <StatCard label="Received On Cancelled" value={fmtAmt(summary.keptOnCancelled)} sub="Token etc. already taken before cancel" bg="#f1f5f9" color="#475569" icon={<Ban size={18} color="#475569" />} />
         </div>
 
         {truncated.length > 0 && (
