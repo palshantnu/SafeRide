@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Search, ChevronLeft, ChevronRight, RefreshCw, Filter, X,
-  IndianRupee, Wallet, XCircle, CheckCircle2, Banknote, CreditCard,
+  IndianRupee, Wallet, XCircle, CheckCircle2, Banknote,
 } from 'lucide-react';
 import { getAllBookinghistory, getSelfSharingBookings, getParcelBookings, getOnSpotBookings, getAllServices } from '../../services/api';
 
@@ -31,6 +31,13 @@ interface MoneyBooking {
   total_amount: number;
   company_amount: number;
   captain_amount: number;
+  // Money actually received so far, by how it was paid (token is always online; the
+  // balance and any topups carry their own mode), and what is still to come.
+  collected_online: number;
+  collected_cash: number;
+  collected_total: number;
+  due_amount: number;
+  is_incity: boolean;
   user_name: string | null;
   user_mobile: string | null;
   user_wallet: string | number | null;
@@ -42,6 +49,9 @@ interface MoneyBooking {
 
 type RawRow = Record<string, unknown>;
 
+// How many bookings to load per source. Totals are worked out over what is loaded, so the
+// page warns if a source has more than this.
+const LOAD_LIMIT = 5000;
 const LOW_BALANCE_THRESHOLD = -20;
 const isLowBalance = (wallet: string | number | null) => Number(wallet ?? 0) <= LOW_BALANCE_THRESHOLD;
 
@@ -57,6 +67,26 @@ const getStatusStyle = (s?: string) => STATUS_CONFIG[(s || '').toUpperCase()] ||
 
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtAmt  = (v?: number | string | null) => `₹${Number(v ?? 0).toFixed(2)}`;
+
+// Collected / due figures come from the API. An older backend that doesn't send them yet
+// falls back to the previous behaviour: a fully paid booking counts whole, in its payment mode.
+const collectedOf = (raw: RawRow, total: number, paid: number, mode: string | null) => {
+  if (raw.collected_total != null) {
+    return {
+      collected_online: Number(raw.collected_online ?? 0),
+      collected_cash: Number(raw.collected_cash ?? 0),
+      collected_total: Number(raw.collected_total ?? 0),
+      due_amount: Number(raw.due_amount ?? 0),
+    };
+  }
+  const got = paid ? total : 0;
+  return {
+    collected_online: mode === 'ONLINE' ? got : 0,
+    collected_cash: mode === 'ONLINE' ? 0 : got,
+    collected_total: got,
+    due_amount: Math.max(0, total - got),
+  };
+};
 
 // ── Per-source mappers: each backend already returns total_amount/company_amount/captain_amount
 // (added alongside this module), so mapping is mostly a field-name pass-through. ──
@@ -81,6 +111,8 @@ const mapRide = (raw: RawRow): MoneyBooking => ({
   total_amount: Number(raw.total_amount ?? 0),
   company_amount: Number(raw.company_amount ?? 0),
   captain_amount: Number(raw.captain_amount ?? 0),
+  ...collectedOf(raw, Number(raw.total_amount ?? 0), Number(raw.paid ?? 0), (raw.payment_mode as string | null) ?? null),
+  is_incity: Number(raw.service_id) === 1,
   user_name: raw.user_name as string | null,
   user_mobile: raw.user_mobile as string | null,
   user_wallet: raw.user_wallet as string | number | null,
@@ -112,6 +144,8 @@ const mapGeneric = (raw: RawRow, module: Module, fallbackLabel: string): MoneyBo
   total_amount: Number(raw.total_amount ?? 0),
   company_amount: Number(raw.company_amount ?? 0),
   captain_amount: Number(raw.captain_amount ?? 0),
+  ...collectedOf(raw, Number(raw.total_amount ?? 0), Number(raw.paid ?? 0), (raw.payment_mode as string | null) ?? null),
+  is_incity: Number(raw.service_id) === 1,
   user_name: raw.user_name as string | null,
   user_mobile: raw.user_mobile as string | null,
   user_wallet: raw.user_wallet as string | number | null,
@@ -128,8 +162,21 @@ const extractList = (res: unknown): RawRow[] => {
   return Array.isArray(inner) ? inner : [];
 };
 
+// A user's cancellation charge is only recorded for admin to collect — it is not cut from
+// their wallet — except on In-City rides, where it is. Captain / BA charges are always cut.
+const feeToRecover = (b: MoneyBooking) => b.cancelled_by === 'USER' && !b.is_incity;
+const cancellationNote = (b: MoneyBooking) => {
+  switch (b.cancelled_by) {
+    case 'USER':               return b.is_incity ? 'Cut from user wallet' : 'To collect from user';
+    case 'DRIVER':             return 'Cut from captain / BA wallet';
+    case 'BUSINESS_ASSOCIATE': return 'Cut from BA wallet';
+    case 'DRIVER_NO_SHOW':     return 'Passenger no-show';
+    default:                   return b.cancelled_by || '';
+  }
+};
+
 // ─── STAT CARD ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, icon, bg, color }: { label: string; value: string; icon: React.ReactNode; bg: string; color: string }) {
+function StatCard({ label, value, icon, bg, color, sub }: { label: string; value: string; icon: React.ReactNode; bg: string; color: string; sub?: string }) {
   return (
     <div style={{ background: 'white', borderRadius: '14px', padding: '14px 18px', border: '1.5px solid #eef2f7', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
       <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -138,6 +185,7 @@ function StatCard({ label, value, icon, bg, color }: { label: string; value: str
       <div>
         <div style={{ fontSize: '17px', fontWeight: 800, color: '#0f172a' }}>{value}</div>
         <div style={{ fontSize: '11px', color, fontWeight: 600, marginTop: '1px' }}>{label}</div>
+        {sub && <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>{sub}</div>}
       </div>
     </div>
   );
@@ -155,6 +203,8 @@ export default function AccountList() {
   const [toDate, setToDate]         = useState('');
   const [page, setPage]             = useState(1);
   const [services, setServices]     = useState<{ key: string; label: string; order: number }[]>([]);
+  // sources whose bookings didn't all fit in one load — totals would be short for those
+  const [truncated, setTruncated]   = useState<string[]>([]);
   const PER_PAGE = 10;
 
   // Modules that live in their own tables outside `bookings` — a matching row in the
@@ -165,12 +215,21 @@ export default function AccountList() {
     setLoading(true);
     try {
       const [rides, selfSharing, parcel, onspot, serviceRows] = await Promise.all([
-        getAllBookinghistory({ limit: 1000 }).catch(() => null),
-        getSelfSharingBookings({ limit: 1000 }).catch(() => null),
-        getParcelBookings({ limit: 1000 }).catch(() => null),
-        getOnSpotBookings({ limit: 1000 }).catch(() => null),
+        getAllBookinghistory({ limit: LOAD_LIMIT }).catch(() => null),
+        getSelfSharingBookings({ limit: LOAD_LIMIT }).catch(() => null),
+        getParcelBookings({ limit: LOAD_LIMIT }).catch(() => null),
+        getOnSpotBookings({ limit: LOAD_LIMIT }).catch(() => null),
         getAllServices().catch(() => null),
       ]);
+      // each API reports how many rows exist in total; flag any source we couldn't load fully
+      const short = ([['Rides', rides], ['Self Sharing', selfSharing], ['Parcel', parcel], ['On Spot', onspot]] as [string, unknown][])
+        .filter(([, res]) => {
+          const total = Number((res as { data?: { pagination?: { total?: number } } } | null)?.data?.pagination?.total ?? 0);
+          return total > extractList(res).length;
+        })
+        .map(([name]) => name);
+      setTruncated(short);
+
       setAllBookings([
         ...extractList(rides).map(mapRide),
         ...extractList(selfSharing).map(r => mapGeneric(r, 'SELF_SHARING', 'Self Sharing')),
@@ -234,24 +293,28 @@ export default function AccountList() {
 
   // ── Summary (computed over the filtered set, not just the current page) ──
   const summary = useMemo(() => {
-    let online = 0, cash = 0, company = 0, captain = 0, cancellationFee = 0, cancelledCount = 0;
+    let online = 0, cash = 0, due = 0, company = 0, captain = 0;
+    let cancellationFee = 0, cancelledCount = 0, toRecover = 0;
     for (const b of filtered) {
-      if (b.paid) {
-        if (b.payment_mode === 'ONLINE') online += b.total_amount || 0;
-        else if (b.payment_mode === 'CASH') cash += b.total_amount || 0;
-      }
+      // every rupee received so far — tokens of running and cancelled bookings included
+      online += b.collected_online || 0;
+      cash   += b.collected_cash || 0;
       if (b.status === 'CANCELLED') {
         cancelledCount += 1;
-        cancellationFee += Number(b.cancellation_fee || 0);
-      } else if (b.paid) {
-        // Only count commission on money that's actually been collected — a booking still
-        // sitting in SEARCHING/ACCEPTED/etc. with paid=0 hasn't earned anyone anything yet,
-        // so it shouldn't inflate Company/Captain Share while Collected stays at ₹0.
-        company += b.company_amount || 0;
-        captain += b.captain_amount || 0;
+        const fee = Number(b.cancellation_fee || 0);
+        cancellationFee += fee;
+        if (feeToRecover(b)) toRecover += fee;
+      } else {
+        due += b.due_amount || 0;
+        // Commission only on fully paid bookings — one still running hasn't earned anyone
+        // its share yet.
+        if (b.paid) {
+          company += b.company_amount || 0;
+          captain += b.captain_amount || 0;
+        }
       }
     }
-    return { online, cash, company, captain, cancellationFee, cancelledCount, net: online + cash };
+    return { online, cash, net: online + cash, due, company, captain, cancellationFee, cancelledCount, toRecover };
   }, [filtered]);
 
   const resetFilters = () => { setSearch(''); setPaymentFilter(''); setStatusFilter(''); setFromDate(''); setToDate(''); setPage(1); };
@@ -277,7 +340,7 @@ export default function AccountList() {
           <div>
             <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a', margin: 0 }}>Accounts</h2>
             <p style={{ color: '#94a3b8', fontSize: '12px', marginTop: '2px', margin: 0 }}>
-              Payment, commission &amp; cancellation breakdown · Showing <b>{filtered.length}</b> of <b>{tabScoped.length}</b>
+              Money received, earnings &amp; cancellation charges · Showing <b>{filtered.length}</b> of <b>{tabScoped.length}</b>
             </p>
           </div>
           <button onClick={fetchAll} disabled={loading}
@@ -298,13 +361,18 @@ export default function AccountList() {
 
         {/* ── Stats Row ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-          <StatCard label="Online Collected"     value={fmtAmt(summary.online)}          bg="#dbeafe" color="#2563eb" icon={<CreditCard size={18} color="#2563eb" />} />
-          <StatCard label="Cash Collected"       value={fmtAmt(summary.cash)}            bg="#fef9c3" color="#a16207" icon={<Banknote size={18} color="#a16207" />} />
-          <StatCard label="Net Collected"        value={fmtAmt(summary.net)}             bg="#eef2ff" color="#6366f1" icon={<IndianRupee size={18} color="#6366f1" />} />
-          <StatCard label="Company Share"        value={fmtAmt(summary.company)}         bg="#d1fae5" color="#059669" icon={<CheckCircle2 size={18} color="#059669" />} />
-          <StatCard label="Captain Share"        value={fmtAmt(summary.captain)}         bg="#e0f2fe" color="#0369a1" icon={<Wallet size={18} color="#0369a1" />} />
-          <StatCard label={`Cancellation Charges (${summary.cancelledCount})`} value={fmtAmt(summary.cancellationFee)} bg="#fee2e2" color="#dc2626" icon={<XCircle size={18} color="#dc2626" />} />
+          <StatCard label="Total Collected"  value={fmtAmt(summary.net)}     sub={`Online ${fmtAmt(summary.online)} · Cash ${fmtAmt(summary.cash)}`} bg="#eef2ff" color="#6366f1" icon={<IndianRupee size={18} color="#6366f1" />} />
+          <StatCard label="Still To Come"    value={fmtAmt(summary.due)}     sub="Unpaid balance on running bookings" bg="#fef9c3" color="#a16207" icon={<Banknote size={18} color="#a16207" />} />
+          <StatCard label="Company Earning"  value={fmtAmt(summary.company)} sub="On fully paid bookings" bg="#d1fae5" color="#059669" icon={<CheckCircle2 size={18} color="#059669" />} />
+          <StatCard label="Captain Earning"  value={fmtAmt(summary.captain)} sub="On fully paid bookings" bg="#e0f2fe" color="#0369a1" icon={<Wallet size={18} color="#0369a1" />} />
+          <StatCard label={`Cancellation Charges (${summary.cancelledCount})`} value={fmtAmt(summary.cancellationFee)} sub={`To collect from users ${fmtAmt(summary.toRecover)}`} bg="#fee2e2" color="#dc2626" icon={<XCircle size={18} color="#dc2626" />} />
         </div>
+
+        {truncated.length > 0 && (
+          <div style={{ background: '#fffbeb', border: '1.5px solid #fde68a', color: '#92400e', borderRadius: '10px', padding: '10px 14px', fontSize: '12px', fontWeight: 600, marginBottom: '16px' }}>
+            Only the latest {LOAD_LIMIT} bookings are loaded for: {truncated.join(', ')}. Totals above do not include older ones — use the date filter for an exact period.
+          </div>
+        )}
 
         {/* ── Filters ── */}
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px', alignItems: 'center' }}>
@@ -367,12 +435,11 @@ export default function AccountList() {
                     { label: 'Date',       align: 'center' },
                     { label: 'User',       align: 'left'   },
                     { label: 'Captain',    align: 'left'   },
-                    { label: 'Payment',    align: 'center' },
-                    { label: 'Token / Balance', align: 'right' },
                     { label: 'Total',      align: 'right'  },
+                    { label: 'Received',   align: 'right'  },
+                    { label: 'Due',        align: 'right'  },
                     { label: 'Company ₹',  align: 'right'  },
                     { label: 'Captain ₹',  align: 'right'  },
-                    { label: 'Topup',      align: 'right'  },
                     { label: 'Cancellation', align: 'right' },
                     { label: 'Status',     align: 'center' },
                   ] as { label: string; align: React.CSSProperties['textAlign'] }[]).map(({ label, align }, i) => (
@@ -385,7 +452,7 @@ export default function AccountList() {
               <tbody>
                 {loading && Array.from({ length: PER_PAGE }).map((_, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    {Array.from({ length: 13 }).map((__, j) => (
+                    {Array.from({ length: 12 }).map((__, j) => (
                       <td key={j} style={{ padding: '14px' }}>
                         <div style={{ height: '12px', borderRadius: '4px', background: '#f1f5f9' }} />
                       </td>
@@ -394,12 +461,11 @@ export default function AccountList() {
                 ))}
 
                 {!loading && paginated.length === 0 && (
-                  <tr><td colSpan={13} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No bookings found matching your filters.</td></tr>
+                  <tr><td colSpan={12} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No bookings found matching your filters.</td></tr>
                 )}
 
                 {!loading && paginated.map(b => {
                   const st = getStatusStyle(b.status);
-                  const cancelledTo = b.cancelled_by === 'DRIVER' ? 'Captain paid' : b.cancelled_by === 'USER' ? 'User paid' : null;
                   const cancellationKnown = b.cancellation_fee != null;
                   return (
                     <tr key={`${b.module}-${b.id}`} className="ac-row" style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -427,23 +493,28 @@ export default function AccountList() {
                           </div>
                         </> : <span style={{ fontSize: '11px', color: '#cbd5e1', fontStyle: 'italic' }}>Unassigned</span>}
                       </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                        <span style={{
-                          padding: '3px 9px', borderRadius: '6px', fontSize: '10px', fontWeight: 700,
-                          background: b.payment_mode === 'ONLINE' ? '#dbeafe' : '#fef9c3',
-                          color: b.payment_mode === 'ONLINE' ? '#1e40af' : '#92400e',
-                        }}>{b.payment_mode || '—'}</span>
-                        {!b.paid && <div style={{ fontSize: '9px', color: '#cbd5e1', marginTop: '2px' }}>Unpaid</div>}
-                      </td>
+                      {/* Total = fare (fees included) + paid topups */}
                       <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                        {b.token_amount != null || b.balance_amount != null ? (
-                          <>
-                            <div style={{ fontSize: '11px', color: '#1e293b' }}>Token {fmtAmt(b.token_amount)}</div>
-                            <div style={{ fontSize: '11px', color: '#64748b' }}>Bal {fmtAmt(b.balance_amount)}</div>
-                          </>
-                        ) : <span style={{ fontSize: '11px', color: '#cbd5e1' }}>—</span>}
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>{fmtAmt(b.total_amount)}</div>
+                        {b.topup_amount && b.topup_amount > 0 ? (
+                          <div style={{ fontSize: '9px', color: '#b45309', fontWeight: 600 }}>incl. topup {fmtAmt(b.topup_amount)}</div>
+                        ) : null}
                       </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>{fmtAmt(b.total_amount)}</td>
+                      {/* Received so far, split by how it was paid */}
+                      <td style={{ padding: '12px 14px', textAlign: 'right' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: b.collected_total > 0 ? '#059669' : '#cbd5e1' }}>{fmtAmt(b.collected_total)}</div>
+                        {b.collected_total > 0 && (
+                          <div style={{ fontSize: '9px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                            {b.collected_online > 0 ? `Online ${fmtAmt(b.collected_online)}` : ''}
+                            {b.collected_online > 0 && b.collected_cash > 0 ? ' · ' : ''}
+                            {b.collected_cash > 0 ? `Cash ${fmtAmt(b.collected_cash)}` : ''}
+                          </div>
+                        )}
+                      </td>
+                      {/* Still to come from the customer */}
+                      <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: '12px', fontWeight: 700, color: b.due_amount > 0 ? '#a16207' : '#cbd5e1' }}>
+                        {b.due_amount > 0 ? fmtAmt(b.due_amount) : '—'}
+                      </td>
                       <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#059669' }}>
                         {b.status === 'CANCELLED' || !b.paid ? '—' : fmtAmt(b.company_amount)}
                       </td>
@@ -451,20 +522,10 @@ export default function AccountList() {
                         {b.status === 'CANCELLED' || !b.paid ? '—' : fmtAmt(b.captain_amount)}
                       </td>
                       <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                        {b.topup_amount && b.topup_amount > 0 ? (
-                          <>
-                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#1e293b' }}>{fmtAmt(b.topup_amount)}</div>
-                            <div style={{ fontSize: '9px', color: '#94a3b8' }}>
-                              Co {fmtAmt(b.topup_company_amount)} · Cap {fmtAmt(b.topup_captain_amount)}
-                            </div>
-                          </>
-                        ) : <span style={{ fontSize: '11px', color: '#cbd5e1' }}>—</span>}
-                      </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'right' }}>
                         {b.status === 'CANCELLED' && cancellationKnown && Number(b.cancellation_fee) > 0 ? (
                           <>
                             <div style={{ fontSize: '12px', fontWeight: 700, color: '#dc2626' }}>{fmtAmt(b.cancellation_fee)}</div>
-                            <div style={{ fontSize: '9px', color: '#94a3b8' }}>{cancelledTo || b.cancelled_by}</div>
+                            <div style={{ fontSize: '9px', color: feeToRecover(b) ? '#dc2626' : '#94a3b8', fontWeight: feeToRecover(b) ? 700 : 400 }}>{cancellationNote(b)}</div>
                           </>
                         ) : b.status === 'CANCELLED' && !cancellationKnown ? (
                           <span style={{ fontSize: '10px', color: '#cbd5e1', fontStyle: 'italic' }}>Not tracked</span>

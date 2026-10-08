@@ -2,6 +2,7 @@ const db = require("../config/db");
 const { v4: uuidv4 } = require("uuid");
 const { notifyUser, notifyDriversByService, notifyDriver, notifyBA } = require("../services/notification");
 const { pickVehicle, saveDriverVehicle } = require("../services/driverVehicle");
+const { collectedSplit } = require("../services/accountMath");
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────────
 const genId  = (prefix) => prefix + uuidv4().slice(0, 10).toUpperCase();
@@ -333,8 +334,10 @@ exports.payBalance = async (req, res) => {
             return res.status(403).json({ status: false, message: "Only a user can pay" });
         }
         const user_id = req.user.id;
-        const { parcel_booking_id } = req.body;
+        const { parcel_booking_id, payment_mode } = req.body;
         if (!parcel_booking_id) return res.status(400).json({ status: false, message: "parcel_booking_id is required" });
+        // "Pay to Captain" sends CASH, "Pay to Sigi" sends ONLINE — record what was chosen
+        const balanceMode = String(payment_mode || '').toUpperCase() === 'CASH' ? 'CASH' : 'ONLINE';
 
         const [[booking]] = await db.execute(
             `SELECT id, status, paid, balance_paid, balance_amount FROM parcel_bookings
@@ -347,8 +350,8 @@ exports.payBalance = async (req, res) => {
         if (booking.balance_paid) return res.status(400).json({ status: false, message: "Balance already paid" });
 
         await db.execute(
-            `UPDATE parcel_bookings SET balance_paid = 1, payment_mode = 'ONLINE', updated_at = NOW() WHERE id = ?`,
-            [booking.id]
+            `UPDATE parcel_bookings SET balance_paid = 1, payment_mode = ?, updated_at = NOW() WHERE id = ?`,
+            [balanceMode, booking.id]
         );
 
         // notify assigned driver that balance was paid
@@ -1113,6 +1116,15 @@ exports.adminGetAllBookings = async (req, res) => {
         // signal to treat as "settled" here, not the raw `paid` column.
         const data = rows.map(b => ({
             ...b,
+            // money actually received: token (raw `paid`) online, then the balance in its own mode
+            ...collectedSplit({
+                fare: parseFloat(b.actual_fare || b.total_fare || 0),
+                tokenPaid: Number(b.paid) === 1,
+                tokenAmount: b.token_amount,
+                balancePaid: Number(b.balance_paid) === 1,
+                balanceMode: b.payment_mode,
+                cancelled: String(b.status).toLowerCase() === 'cancelled',
+            }),
             paid: Number(b.balance_paid) === 1 ? 1 : 0,
             total_amount: parseFloat(b.actual_fare || b.total_fare || 0),
             company_amount: parseFloat(b.plan_company_commission || 0)

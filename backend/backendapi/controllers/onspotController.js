@@ -2,6 +2,7 @@ const db = require("../config/db");
 const { v4: uuidv4 } = require("uuid");
 const moment = require("moment");
 const { notifyUser, notifyDriversByService, notifyDriver } = require("../services/notification");
+const { collectedSplit } = require("../services/accountMath");
 
 // ─── HELPERS ───────────────────────────────────────────────────────────────────
 const genId  = (prefix) => prefix + uuidv4().slice(0, 10).toUpperCase();
@@ -869,6 +870,15 @@ exports.adminGetAllBookings = async (req, res) => {
         // "settled" means the full balance has been collected, i.e. balance_paid = 1.
         const data = rows.map(b => ({
             ...b,
+            // money actually received: token online, then the balance in its own mode
+            ...collectedSplit({
+                fare: parseFloat(b.total_fare || 0),
+                tokenPaid: Number(b.token_paid) === 1,
+                tokenAmount: b.token_amount,
+                balancePaid: Number(b.balance_paid) === 1,
+                balanceMode: b.payment_mode,
+                cancelled: b.status === 'CANCELLED',
+            }),
             paid: Number(b.balance_paid) === 1 ? 1 : 0,
             total_amount: parseFloat(b.total_fare || 0),
             company_amount: parseFloat(b.plan_company_commission || 0)

@@ -2,6 +2,7 @@ const db = require("../config/db");
 const { v4: uuidv4 } = require('uuid');
 const moment = require('moment');
 const { notifyDriversByService, notifyBAsByService } = require("../services/notification");
+const { collectedSplit } = require("../services/accountMath");
 const { createAdminNotification } = require('../services/adminNotification');
 
 exports.createBookingRequest = async (req, res) => {
@@ -261,7 +262,7 @@ exports.getBookingHistory = async (req, res) => {
                 b.pickup_city, b.drop_city, b.to_city, b.pickup_address, b.drop_address,
                 b.distance, b.total_fare, b.actual_distance, b.actual_fare,
                 b.platform_fee, b.access_fee, b.paid, b.balance_paid, b.payment_mode,
-                b.token_amount, b.balance_amount,
+                b.token_amount, b.token_paid, b.balance_amount,
                 b.person, b.schedule_date, b.created_at,
                 b.ride_started_at, b.ride_completed_at,
                 u.id AS user_id, u.name AS user_name, u.mobile AS user_mobile, u.wallet AS user_wallet,
@@ -272,6 +273,7 @@ exports.getBookingHistory = async (req, res) => {
                 COALESCE(bt.topup_count, 0)                 AS topup_count,
                 COALESCE(bt.topup_km, 0)                     AS topup_km,
                 COALESCE(bt.topup_paid_amount, 0)            AS topup_paid_amount,
+                COALESCE(bt.topup_paid_online, 0)            AS topup_paid_online,
                 COALESCE(bt.topup_pending_amount, 0)         AS topup_pending_amount,
                 COALESCE(bt.topup_captain_commission, 0)     AS topup_captain_commission,
                 COALESCE(bt.topup_company_commission, 0)     AS topup_company_commission,
@@ -289,6 +291,7 @@ exports.getBookingHistory = async (req, res) => {
                     COUNT(*) AS topup_count,
                     SUM(CASE WHEN status = 'PAID'    THEN extra_km           ELSE 0 END) AS topup_km,
                     SUM(CASE WHEN status = 'PAID'    THEN topup_amount       ELSE 0 END) AS topup_paid_amount,
+                    SUM(CASE WHEN status = 'PAID' AND payment_mode = 'ONLINE' THEN topup_amount ELSE 0 END) AS topup_paid_online,
                     SUM(CASE WHEN status = 'PENDING' THEN topup_amount       ELSE 0 END) AS topup_pending_amount,
                     SUM(CASE WHEN status = 'PAID'    THEN captain_commission ELSE 0 END) AS topup_captain_commission,
                     SUM(CASE WHEN status = 'PAID'    THEN company_commission ELSE 0 END) AS topup_company_commission
@@ -364,8 +367,23 @@ exports.getBookingHistory = async (req, res) => {
                 ? Number(b.paid) === 1
                 : (Number(b.balance_paid) === 1 || ['BALANCE_PAID', 'COMPLETED'].includes(b.status));
 
+            // Money actually received, by mode. In-City is paid in one go at the end; plan
+            // bookings pay a token online first, then the balance, then any topups.
+            const topupOnline = isInCity ? 0 : parseFloat(b.topup_paid_online || 0);
+            const collected = collectedSplit({
+                fare: baseFare,
+                tokenPaid: !isInCity && Number(b.token_paid) === 1,
+                tokenAmount: b.token_amount,
+                balancePaid: settled,
+                balanceMode: b.payment_mode,
+                cancelled: isCancelled,
+                extraOnline: topupOnline,
+                extraCash: isInCity ? 0 : Math.max(0, topupPaid - topupOnline),
+            });
+
             return {
                 ...b,
+                ...collected,
                 paid: settled ? 1 : 0,
                 total_amount: Math.round(total_amount * 100) / 100,
                 total_km: planKm > 0 ? Math.round((planKm + topupKm) * 100) / 100 : null,
