@@ -319,7 +319,7 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
 
           {/* Dropdown */}
           {open && (
-            <div style={{
+            <div className="admin-notif-dropdown" style={{
               position: "absolute", top: "calc(100% + 10px)", right: 0,
               width: 360, maxHeight: 480,
               background: "white", borderRadius: 16,
@@ -458,6 +458,18 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
         @keyframes dropIn {
           from { opacity: 0; transform: translateY(-8px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        /* Phones: the 360px panel anchored to the bell runs off the left edge, so pin
+           it to the screen with a small gutter on both sides instead. */
+        @media (max-width: 640px) {
+          .admin-notif-dropdown {
+            position: fixed !important;
+            top: 72px !important;
+            left: 10px !important;
+            right: 10px !important;
+            width: auto !important;
+            max-height: calc(100vh - 90px) !important;
+          }
         }
       `}</style>
     </header>
