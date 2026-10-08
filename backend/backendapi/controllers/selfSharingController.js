@@ -1294,6 +1294,19 @@ exports.adminGetAllBookings = async (req, res) => {
             LIMIT ${limitNum} OFFSET ${offset}
         `, values);
 
+        // passenger details the user filled in while booking (name / age / gender per seat)
+        const passengersByBooking = {};
+        if (rows.length > 0) {
+            const [passengers] = await db.query(
+                `SELECT id, booking_id, name, age, gender FROM sigi_passengers WHERE booking_id IN (?) ORDER BY id ASC`,
+                [rows.map(r => r.id)]
+            );
+            for (const p of passengers) {
+                (passengersByBooking[p.booking_id] = passengersByBooking[p.booking_id] || [])
+                    .push({ id: p.id, name: p.name, age: p.age, gender: p.gender });
+            }
+        }
+
         // Company's cut is the captain's sub_service platform_fee + access_fee (flat or
         // percent, already resolved into a rupee amount at booking time — see
         // selfSharingController.createBooking). Everything else in total_fare is the
@@ -1306,6 +1319,7 @@ exports.adminGetAllBookings = async (req, res) => {
             const companyAmount = parseFloat(b.platform_fee || 0) + parseFloat(b.access_fee || 0);
             return {
                 ...b,
+                passengers: passengersByBooking[b.id] || [],
                 paid: Number(b.balance_paid) === 1 ? 1 : 0,
                 total_amount: parseFloat(b.total_fare || 0),
                 company_amount: companyAmount,

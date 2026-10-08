@@ -410,6 +410,7 @@ export default function DriverList() {
   const filteredDrivers = useMemo(() => drivers.filter(d =>
     (d.full_name?.toLowerCase() || '').includes(search.toLowerCase()) ||
     (d.phone || '').includes(search) ||
+    String(d.pincode || '').includes(search.trim()) ||
     (d.service_name?.toLowerCase() || '').includes(search.toLowerCase()) ||
     (d.sub_service_name?.toLowerCase() || '').includes(search.toLowerCase())
   ), [search, drivers]);
@@ -869,7 +870,7 @@ export default function DriverList() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '12px', padding: '8px 16px', flex: '1', minWidth: '180px' }}>
             <Search size={16} color="#94a3b8" />
             <input 
-              placeholder="Search name, phone, service..." 
+              placeholder="Search name, phone, pincode, service..." 
               value={search} 
               onChange={e => { setSearch(e.target.value); setPage(1); }} 
               style={{ border: 'none', outline: 'none', fontSize: '13px', width: '100%' }} 

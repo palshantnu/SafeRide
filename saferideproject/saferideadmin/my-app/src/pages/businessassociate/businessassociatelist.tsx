@@ -801,7 +801,8 @@ export default function BAList() {
   const filteredBA = useMemo(() =>
     baList.filter((ba) =>
       ba.ba_name?.toLowerCase().includes(search.toLowerCase()) ||
-      ba.ba_mobile?.includes(search)
+      ba.ba_mobile?.includes(search) ||
+      String(ba.pincode || '').includes(search.trim())
     ), [search, baList]);
 
   const totalPages = Math.ceil(filteredBA.length / PER_PAGE);
@@ -1241,7 +1242,7 @@ export default function BAList() {
         <div className="responsive-toolbar" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <div className="responsive-search" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', border: '1.5px solid #e2e8f0', borderRadius: '10px', padding: '6px 12px' }}>
             <Search size={14} color="#94a3b8" />
-            <input placeholder="Search by name or mobile..." value={search}
+            <input placeholder="Search by name, mobile or pincode..." value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               style={{ border: 'none', outline: 'none', fontSize: '12px', width: '180px', color: '#1e293b', background: 'transparent' }} />
           </div>

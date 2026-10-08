@@ -222,6 +222,15 @@ function DetailModal({ data, type, onClose }: { data: SharingTrip | SharingBooki
                     </div>
                     <StatusBadge status={b.status} />
                   </div>
+                  {Array.isArray(b.passengers) && (b.passengers as { name?: string | null; age?: number | null; gender?: string | null }[]).length > 0 && (
+                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed #f1f5f9', fontSize: 12, color: '#475569' }}>
+                      {(b.passengers as { name?: string | null; age?: number | null; gender?: string | null }[]).map((p, i) => (
+                        <div key={i} style={{ marginTop: i ? 2 : 0 }}>
+                          {i + 1}. <b style={{ color: '#1e293b' }}>{p.name || '—'}</b> · Age {p.age ?? '—'} · {p.gender || '—'}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {b.status === 'CANCELLED' && (
                     <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed #f1f5f9', fontSize: 12, color: '#475569' }}>
                       <div><b style={{ color: '#991b1b' }}>{cancelledByLabel(b.cancelled_by)}</b></div>
@@ -249,6 +258,32 @@ function DetailModal({ data, type, onClose }: { data: SharingTrip | SharingBooki
               <Row label="Created"     value={fmtDate(d.created_at as string)} />
               <Row label="Trip Started" value={d.ride_started_at ? fmtFull(d.ride_started_at as string) : '—'} />
               <Row label="Trip Finished" value={d.ride_completed_at ? fmtFull(d.ride_completed_at as string) : '—'} />
+              {/* What the user filled in while booking */}
+              <Row label="Seats Booked" value={d.seats as string} />
+              <Row label="Token Paid"   value={fmtAmt(d.token_amount as string)} />
+              <Row label="Balance"      value={fmtAmt(d.balance_amount as string)} />
+              {(() => {
+                const passengers = (d.passengers as { id?: number; name?: string | null; age?: number | null; gender?: string | null }[] | undefined) || [];
+                return (
+                  <>
+                    <div style={{ marginTop: 18, marginBottom: 6, fontSize: 12, fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                      Passenger Details ({passengers.length})
+                    </div>
+                    {passengers.length === 0 ? (
+                      <div style={{ padding: '10px 0', color: '#94a3b8', fontSize: 12 }}>No passenger details were entered for this booking.</div>
+                    ) : passengers.map((p, i) => (
+                      <div key={p.id ?? i} style={{ border: '1.5px solid #f1f5f9', borderRadius: 12, padding: '10px 12px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>{i + 1}. {p.name || '—'}</div>
+                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                            Age: <b style={{ color: '#1e293b' }}>{p.age ?? '—'}</b> · Gender: <b style={{ color: '#1e293b' }}>{p.gender || '—'}</b>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                );
+              })()}
               {d.status === 'CANCELLED' && (
                 <>
                   <Row label="Cancelled By"        value={cancelledByLabel(d.cancelled_by as string)} />
