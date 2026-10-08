@@ -283,7 +283,11 @@ function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => vo
                     <div style={{ padding: '8px 10px' }}>
                       <div style={{ fontSize: '11px', fontWeight: 700, color: '#0369a1' }}>{METER_LABEL[m.image_type] || m.image_type}</div>
                       <div style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b', marginTop: '2px' }}>
-                        {m.meter_text ? `Reading: ${m.meter_text}` : <span style={{ color: '#94a3b8', fontWeight: 500 }}>No reading entered</span>}
+                        {m.meter_text
+                          ? `Reading: ${m.meter_text} km`
+                          : m.image_type === 'TOPUP'
+                            ? <span style={{ color: '#94a3b8', fontWeight: 500 }}>Photo for extra km (see Topups below)</span>
+                            : <span style={{ color: '#94a3b8', fontWeight: 500 }}>Reading not saved</span>}
                       </div>
                       <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>{fmtFull(m.created_at)}</div>
                     </div>

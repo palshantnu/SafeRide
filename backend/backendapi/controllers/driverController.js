@@ -1499,7 +1499,8 @@ exports.driverArrived = async (req, res) => {
 exports.bookingverifyOtp = async (req, res) => {
     try {
         const driver_id = req.user.id;
-        const { booking_id, otp, pickup_lat, pickup_lng } = req.body;
+        // meter_text: the odometer reading the captain types along with the start meter photo
+        const { booking_id, otp, pickup_lat, pickup_lng, meter_text } = req.body;
 
         if (!booking_id || !otp) {
             return res.status(400).json({ status: false, message: "booking_id and otp are required" });
@@ -1545,8 +1546,8 @@ exports.bookingverifyOtp = async (req, res) => {
         }
 
         if (req.file) {
-            await db.query(`INSERT INTO booking_meter_images (booking_id, image_type, image) VALUES (?, 'STARTED', ?)`,
-                [booking.id, req.file.filename]);
+            await db.query(`INSERT INTO booking_meter_images (booking_id, image_type, image, meter_text) VALUES (?, 'STARTED', ?, ?)`,
+                [booking.id, req.file.filename, meter_text || null]);
         }
 
         await notifyUser(booking.user_id, "Ride started",
