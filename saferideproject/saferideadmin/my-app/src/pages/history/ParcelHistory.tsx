@@ -43,8 +43,14 @@ interface Booking {
   pickup_otp_verified_at?: string | null;
   delivered_at?: string | null;
   completed_at?: string | null;
+  pickup_image?: string | null;      // photo the captain takes when collecting the parcel
+  delivery_image?: string | null;    // photo the captain takes on delivery
   [key: string]: unknown;
 }
+
+// Parcel photos are served by the API host under /uploads/parcel_images/
+const PARCEL_IMAGE_BASE =
+  `${(import.meta.env.VITE_API_URL || 'https://sigiride.com/api').replace(/\/api\/?$/, '')}/uploads/parcel_images/`;
 
 const STATUS_CONFIG: Record<string, { bg: string; color: string; dot: string }> = {
   COMPLETED:    { bg: '#d1fae5', color: '#065f46', dot: '#10b981' },
@@ -130,6 +136,30 @@ function DetailModal({ booking, onClose }: { booking: Booking; onClose: () => vo
           <Row label="Created"       value={fmtDate(booking.created_at)} />
           <Row label="Picked Up"     value={booking.pickup_otp_verified_at ? fmtFull(booking.pickup_otp_verified_at) : '—'} />
           <Row label="Delivered"     value={(booking.delivered_at || booking.completed_at) ? fmtFull(booking.delivered_at || booking.completed_at) : '—'} />
+
+          {/* Photos taken by the captain at pickup and at delivery */}
+          {(booking.pickup_image || booking.delivery_image) && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#c2410c', marginBottom: 8 }}>Parcel Photos</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+                {[
+                  { label: 'Pickup Photo', file: booking.pickup_image, at: booking.pickup_otp_verified_at },
+                  { label: 'Delivery Photo', file: booking.delivery_image, at: booking.delivered_at || booking.completed_at },
+                ].filter(ph => ph.file).map(ph => (
+                  <div key={ph.label} style={{ border: '1.5px solid #fed7aa', borderRadius: 12, overflow: 'hidden', background: '#fff7ed' }}>
+                    <a href={`${PARCEL_IMAGE_BASE}${ph.file}`} target="_blank" rel="noreferrer" title="Open full image">
+                      <img src={`${PARCEL_IMAGE_BASE}${ph.file}`} alt={ph.label}
+                        style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }} />
+                    </a>
+                    <div style={{ padding: '8px 10px' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#c2410c' }}>{ph.label}</div>
+                      {ph.at && <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{fmtFull(ph.at)}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
