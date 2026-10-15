@@ -58,6 +58,43 @@ export async function enableAdminPush(): Promise<PushState> {
   }
 }
 
+/**
+ * Register this browser as soon as the admin panel opens:
+ *  • permission already granted → register (refreshes the token every visit);
+ *  • not asked yet → ask straight away; browsers that only allow the prompt after a
+ *    user action (Safari, some mobile Chrome) get it on the admin's first tap/click.
+ * Never throws. `onState` reports the outcome once it is known.
+ */
+export function autoEnableAdminPush(onState?: (state: PushState) => void): () => void {
+  let cancelled = false;
+  let detach = () => {};
+
+  (async () => {
+    if (!pushConfigured() || !(await pushSupported())) return;
+    if (Notification.permission === 'denied') { onState?.('denied'); return; }
+    if (Notification.permission === 'granted') { onState?.(await enableAdminPush()); return; }
+
+    // 'default' — try to ask right away
+    try { await Notification.requestPermission(); } catch { /* needs a user gesture */ }
+    if (cancelled) return;
+    if (Notification.permission !== 'default') { onState?.(await enableAdminPush()); return; }
+
+    // still not asked: do it on the first interaction with the page
+    const onGesture = async () => {
+      detach();
+      if (!cancelled) onState?.(await enableAdminPush());
+    };
+    window.addEventListener('pointerdown', onGesture, { once: true });
+    window.addEventListener('keydown', onGesture, { once: true });
+    detach = () => {
+      window.removeEventListener('pointerdown', onGesture);
+      window.removeEventListener('keydown', onGesture);
+    };
+  })();
+
+  return () => { cancelled = true; detach(); };
+}
+
 /** On logout: stop sending this browser admin notifications. Never throws. */
 export async function disableAdminPush(): Promise<void> {
   const token = localStorage.getItem(TOKEN_KEY);

@@ -75,10 +75,11 @@ const PUSH_TITLES = {
 };
 
 // Tokens FCM reports as gone (browser data cleared, permission revoked…) are dropped.
+// Not "invalid-argument": FCM also returns that for a bad message, and treating it as a
+// dead token would wipe every admin's registration on one faulty push.
 const DEAD_TOKEN_CODES = new Set([
   'messaging/registration-token-not-registered',
   'messaging/invalid-registration-token',
-  'messaging/invalid-argument',
 ]);
 
 // Best-effort — never throws, so a push problem can't break whatever created the notification.

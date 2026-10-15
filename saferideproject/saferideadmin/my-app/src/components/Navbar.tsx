@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { getAdminNotifications, updateAdminProfile } from "../services/api";
 import { usePermissions } from "../context/PermissionsContext";
-import { enableAdminPush, pushConfigured, pushSupported } from "../services/push";
+import { enableAdminPush, autoEnableAdminPush } from "../services/push";
 
 interface NavbarProps {
   onMenuClick: () => void;
@@ -225,16 +225,17 @@ export default function Navbar({ onMenuClick, searchQuery, setSearchQuery }: Nav
   const [pushBusy, setPushBusy]     = useState(false);
 
   useEffect(() => {
-    (async () => {
-      if (!pushConfigured() || !(await pushSupported())) return;
-      if (Notification.permission === 'granted') void enableAdminPush();   // keep the token fresh
-      else if (Notification.permission === 'default') setPushPrompt('ask');
-    })();
+    // register this browser for push as soon as the panel opens (see autoEnableAdminPush);
+    // the bell's "Enable alerts" button stays as a fallback if that didn't go through
+    const stopAuto = autoEnableAdminPush(state => setPushPrompt(state === 'enabled' || state === 'denied' ? 'hidden' : 'ask'));
 
     // a push arrived while this tab is open → refresh the list now (poll plays the chime)
     const onSwMessage = (e: MessageEvent) => { if (e.data?.source === 'admin-push') void poll(); };
     navigator.serviceWorker?.addEventListener('message', onSwMessage);
-    return () => navigator.serviceWorker?.removeEventListener('message', onSwMessage);
+    return () => {
+      stopAuto();
+      navigator.serviceWorker?.removeEventListener('message', onSwMessage);
+    };
   }, [poll]);
 
   const handleEnablePush = async () => {
