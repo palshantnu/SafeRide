@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Search, ChevronLeft, ChevronRight, RefreshCw, Filter, X,
   IndianRupee, Wallet, XCircle, CheckCircle2, Banknote, CreditCard, Clock, Download, Ban,
+  ArrowUpRight, ArrowDownLeft,
 } from 'lucide-react';
 import { getAllBookinghistory, getSelfSharingBookings, getParcelBookings, getOnSpotBookings, getAllServices } from '../../services/api';
 
@@ -178,6 +179,51 @@ const cancellationNote = (b: MoneyBooking) => {
   }
 };
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+// total_amount already includes paid topups, so the ride fare on its own is total minus topups.
+const rideFareOf = (b: MoneyBooking) => Math.max(0, round2(b.total_amount - (b.topup_amount || 0)));
+// Balance = fare left after the token. Older rows without balance_amount fall back to fare − token.
+const balanceOf = (b: MoneyBooking) => {
+  if (b.balance_amount != null) return b.balance_amount;
+  if (b.token_amount) return Math.max(0, round2(rideFareOf(b) - b.token_amount));
+  return null;
+};
+
+// What the company owes the captain (+) or must take from the captain (−) for one booking:
+// the company holds everything paid online but keeps only its share; the captain holds the
+// cash but keeps only theirs. Settled only once the booking is fully paid and not cancelled.
+const settlementOf = (b: MoneyBooking) =>
+  b.status === 'CANCELLED' || !b.paid ? null : round2(b.collected_online - b.company_amount);
+
+const PAY_STATUS: Record<string, { label: string; bg: string; color: string }> = {
+  CANCELLED: { label: 'Cancelled',      bg: '#fff1f2', color: '#991b1b' },
+  PAID:      { label: 'Fully Paid',     bg: '#d1fae5', color: '#065f46' },
+  PARTIAL:   { label: 'Partially Paid', bg: '#fef3c7', color: '#92400e' },
+  UNPAID:    { label: 'Unpaid',         bg: '#f1f5f9', color: '#475569' },
+};
+const payStatusOf = (b: MoneyBooking) =>
+  PAY_STATUS[b.status === 'CANCELLED' ? 'CANCELLED' : b.paid ? 'PAID' : b.collected_total > 0 ? 'PARTIAL' : 'UNPAID'];
+
+// Account table columns, in display order.
+const COLUMNS: { label: string; align: React.CSSProperties['textAlign'] }[] = [
+  { label: 'Booking ID',        align: 'left'   },
+  { label: 'Service',           align: 'left'   },
+  { label: 'User',              align: 'left'   },
+  { label: 'Captain',           align: 'left'   },
+  { label: 'Ride Fare',         align: 'right'  },
+  { label: 'Token',             align: 'right'  },
+  { label: 'Topup',             align: 'right'  },
+  { label: 'Balance',           align: 'right'  },
+  { label: 'Final Total',       align: 'right'  },
+  { label: 'Company ₹',         align: 'right'  },
+  { label: 'Captain ₹',         align: 'right'  },
+  { label: 'By Company (Online)', align: 'right' },
+  { label: 'By Captain (Cash)', align: 'right'  },
+  { label: 'Settlement',        align: 'right'  },
+  { label: 'Payment Status',    align: 'center' },
+];
+
 // ─── STAT CARD ────────────────────────────────────────────────────────────────
 function StatCard({ label, value, icon, bg, color, sub }: { label: string; value: string; icon: React.ReactNode; bg: string; color: string; sub?: string }) {
   return (
@@ -309,7 +355,13 @@ export default function AccountList() {
     let online = 0, cash = 0, due = 0, company = 0, captain = 0;
     let cancellationFee = 0, cancelledCount = 0, toRecover = 0;
     let keptOnCancelled = 0, paidCount = 0, runningCount = 0;
+    let payToCaptains = 0, takeFromCaptains = 0;
     for (const b of filtered) {
+      const settle = settlementOf(b);
+      if (settle != null) {
+        if (settle > 0) payToCaptains += settle;
+        else takeFromCaptains += -settle;
+      }
       // every rupee received so far — tokens of running and cancelled bookings included
       online += b.collected_online || 0;
       cash   += b.collected_cash || 0;
@@ -332,21 +384,27 @@ export default function AccountList() {
         }
       }
     }
-    return { online, cash, net: online + cash, due, company, captain, cancellationFee, cancelledCount, toRecover, keptOnCancelled, paidCount, runningCount };
+    return { online, cash, net: online + cash, due, company, captain, cancellationFee, cancelledCount, toRecover, keptOnCancelled, paidCount, runningCount, payToCaptains, takeFromCaptains };
   }, [filtered]);
 
   // Download the rows currently shown (after tab + filters) as a CSV for Excel
   const exportCsv = () => {
-    const head = ['Booking', 'Service', 'Date', 'User', 'User Mobile', 'Captain', 'Captain Mobile', 'Status',
-      'Total', 'Received', 'Online', 'Cash', 'Due', 'Company', 'Captain Share', 'Cancellation Charge', 'Cancelled By'];
+    const head = ['Booking ID', 'Service', 'Date', 'User', 'User Mobile', 'Captain', 'Captain Mobile',
+      'Ride Fare', 'Token', 'Topup', 'Balance', 'Final Total', 'Company Amount', 'Captain Amount',
+      'Taken By Company (Online)', 'Taken By Captain (Cash)', 'Settlement (+ Company Gives / - Company Takes)',
+      'Payment Status', 'Booking Status', 'Cancellation Charge', 'Cancelled By'];
     const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const lines = filtered.map(b => [
-      b.booking_id, b.service_name, fmtDate(b.created_at), b.user_name, b.user_mobile, b.driver_name, b.driver_mobile, b.status,
-      b.total_amount, b.collected_total, b.collected_online, b.collected_cash, b.due_amount,
-      b.status === 'CANCELLED' || !b.paid ? '' : b.company_amount,
-      b.status === 'CANCELLED' || !b.paid ? '' : b.captain_amount,
-      b.status === 'CANCELLED' ? (b.cancellation_fee ?? '') : '', b.status === 'CANCELLED' ? (b.cancelled_by ?? '') : '',
-    ].map(cell).join(','));
+    const lines = filtered.map(b => {
+      const shared = b.status !== 'CANCELLED' && b.paid;
+      return [
+        b.booking_id, b.service_name, fmtDate(b.created_at), b.user_name, b.user_mobile, b.driver_name, b.driver_mobile,
+        rideFareOf(b), b.token_amount ?? '', b.topup_amount || '', balanceOf(b) ?? '', b.total_amount,
+        shared ? b.company_amount : '', shared ? b.captain_amount : '',
+        b.collected_online, b.collected_cash, settlementOf(b) ?? '',
+        payStatusOf(b).label, b.status,
+        b.status === 'CANCELLED' ? (b.cancellation_fee ?? '') : '', b.status === 'CANCELLED' ? (b.cancelled_by ?? '') : '',
+      ].map(cell).join(',');
+    });
     const blob = new Blob(['\ufeff' + [head.map(cell).join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -414,6 +472,8 @@ export default function AccountList() {
           <StatCard label={`Company Earning (${summary.paidCount})`}  value={fmtAmt(summary.company)} sub="On fully paid bookings" bg="#d1fae5" color="#059669" icon={<CheckCircle2 size={18} color="#059669" />} />
           <StatCard label="Captain Earning"   value={fmtAmt(summary.captain)} sub="On fully paid bookings" bg="#e0f2fe" color="#0369a1" icon={<Wallet size={18} color="#0369a1" />} />
           <StatCard label={`Cancellation Charges (${summary.cancelledCount})`} value={fmtAmt(summary.cancellationFee)} sub={`To collect from users ${fmtAmt(summary.toRecover)}`} bg="#fee2e2" color="#dc2626" icon={<XCircle size={18} color="#dc2626" />} />
+          <StatCard label="Company Gives Captains" value={fmtAmt(summary.payToCaptains)} sub="Online money held for captains' share" bg="#ede9fe" color="#7c3aed" icon={<ArrowUpRight size={18} color="#7c3aed" />} />
+          <StatCard label="Company Takes From Captains" value={fmtAmt(summary.takeFromCaptains)} sub="Company share held as captain cash" bg="#fce7f3" color="#be185d" icon={<ArrowDownLeft size={18} color="#be185d" />} />
           <StatCard label="Received On Cancelled" value={fmtAmt(summary.keptOnCancelled)} sub="Token etc. already taken before cancel" bg="#f1f5f9" color="#475569" icon={<Ban size={18} color="#475569" />} />
         </div>
 
@@ -475,23 +535,10 @@ export default function AccountList() {
         {/* ── Table ── */}
         <div style={{ background: 'white', borderRadius: '16px', border: '1.5px solid #eef2f7', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1200px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1900px' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1.5px solid #f1f5f9' }}>
-                  {([
-                    { label: 'Booking',    align: 'left'   },
-                    { label: 'Service',    align: 'left'   },
-                    { label: 'Date',       align: 'center' },
-                    { label: 'User',       align: 'left'   },
-                    { label: 'Captain',    align: 'left'   },
-                    { label: 'Total',      align: 'right'  },
-                    { label: 'Received',   align: 'right'  },
-                    { label: 'Due',        align: 'right'  },
-                    { label: 'Company ₹',  align: 'right'  },
-                    { label: 'Captain ₹',  align: 'right'  },
-                    { label: 'Cancellation', align: 'right' },
-                    { label: 'Status',     align: 'center' },
-                  ] as { label: string; align: React.CSSProperties['textAlign'] }[]).map(({ label, align }, i) => (
+                  {COLUMNS.map(({ label, align }, i) => (
                     <th key={i} style={{ padding: '12px 14px', fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: align, whiteSpace: 'nowrap' }}>
                       {label}
                     </th>
@@ -501,7 +548,7 @@ export default function AccountList() {
               <tbody>
                 {loading && Array.from({ length: PER_PAGE }).map((_, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    {Array.from({ length: 12 }).map((__, j) => (
+                    {COLUMNS.map((__, j) => (
                       <td key={j} style={{ padding: '14px' }}>
                         <div style={{ height: '12px', borderRadius: '4px', background: '#f1f5f9' }} />
                       </td>
@@ -510,80 +557,95 @@ export default function AccountList() {
                 ))}
 
                 {!loading && paginated.length === 0 && (
-                  <tr><td colSpan={12} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No bookings found matching your filters.</td></tr>
+                  <tr><td colSpan={COLUMNS.length} style={{ padding: '48px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No bookings found matching your filters.</td></tr>
                 )}
 
                 {!loading && paginated.map(b => {
                   const st = getStatusStyle(b.status);
+                  const pay = payStatusOf(b);
+                  const shared = b.status !== 'CANCELLED' && !!b.paid;
+                  const balance = balanceOf(b);
+                  const settle = settlementOf(b);
                   const cancellationKnown = b.cancellation_fee != null;
+                  const amtCell: React.CSSProperties = { padding: '12px 14px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap' };
+                  const dash = <span style={{ color: '#cbd5e1' }}>—</span>;
                   return (
                     <tr key={`${b.module}-${b.id}`} className="ac-row" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      {/* Booking ID */}
                       <td style={{ padding: '12px 14px' }}>
                         <div style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>{b.booking_id}</div>
+                        <div style={{ fontSize: '10px', color: '#94a3b8', whiteSpace: 'nowrap' }}>{fmtDate(b.created_at)}</div>
                       </td>
+                      {/* Service */}
                       <td style={{ padding: '12px 14px' }}>
                         <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{b.service_name}</div>
                         {b.sub_service_name && b.sub_service_name !== b.service_name && (
                           <div style={{ fontSize: '10px', color: '#94a3b8' }}>{b.sub_service_name}</div>
                         )}
                       </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'center', fontSize: '11px', color: '#1e293b', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtDate(b.created_at)}</td>
+                      {/* User */}
                       <td style={{ padding: '12px 14px' }}>
                         <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{b.user_name || '—'}</div>
-                        <div style={{ fontSize: '10px', color: isLowBalance(b.user_wallet) ? '#ef4444' : '#94a3b8', fontWeight: isLowBalance(b.user_wallet) ? 700 : 400 }}>
+                        <div style={{ fontSize: '10px', color: isLowBalance(b.user_wallet) ? '#ef4444' : '#94a3b8', fontWeight: isLowBalance(b.user_wallet) ? 700 : 400, whiteSpace: 'nowrap' }}>
                           {b.user_mobile || '—'} · Bal {fmtAmt(b.user_wallet)}
                         </div>
                       </td>
+                      {/* Captain */}
                       <td style={{ padding: '12px 14px' }}>
                         {b.driver_id ? <>
                           <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{b.driver_name || '—'}</div>
-                          <div style={{ fontSize: '10px', color: isLowBalance(b.driver_wallet) ? '#ef4444' : '#94a3b8', fontWeight: isLowBalance(b.driver_wallet) ? 700 : 400 }}>
+                          <div style={{ fontSize: '10px', color: isLowBalance(b.driver_wallet) ? '#ef4444' : '#94a3b8', fontWeight: isLowBalance(b.driver_wallet) ? 700 : 400, whiteSpace: 'nowrap' }}>
                             {b.driver_mobile || '—'} · Bal {fmtAmt(b.driver_wallet)}
                           </div>
                         </> : <span style={{ fontSize: '11px', color: '#cbd5e1', fontStyle: 'italic' }}>Unassigned</span>}
                       </td>
-                      {/* Total = fare (fees included) + paid topups */}
-                      <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>{fmtAmt(b.total_amount)}</div>
-                        {b.topup_amount && b.topup_amount > 0 ? (
-                          <div style={{ fontSize: '9px', color: '#b45309', fontWeight: 600 }}>incl. topup {fmtAmt(b.topup_amount)}</div>
-                        ) : null}
+                      {/* Ride Fare */}
+                      <td style={amtCell}>{fmtAmt(rideFareOf(b))}</td>
+                      {/* Token */}
+                      <td style={amtCell}>{b.token_amount ? fmtAmt(b.token_amount) : dash}</td>
+                      {/* Topup */}
+                      <td style={{ ...amtCell, color: '#b45309' }}>{b.topup_amount ? fmtAmt(b.topup_amount) : dash}</td>
+                      {/* Balance */}
+                      <td style={amtCell}>{balance ? fmtAmt(balance) : dash}</td>
+                      {/* Final Total = fare + topups */}
+                      <td style={{ ...amtCell, fontWeight: 800 }}>
+                        {fmtAmt(b.total_amount)}
+                        {b.due_amount > 0 && <div style={{ fontSize: '9px', color: '#a16207', fontWeight: 600 }}>Due {fmtAmt(b.due_amount)}</div>}
                       </td>
-                      {/* Received so far, split by how it was paid */}
-                      <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: b.collected_total > 0 ? '#059669' : '#cbd5e1' }}>{fmtAmt(b.collected_total)}</div>
-                        {b.collected_total > 0 && (
-                          <div style={{ fontSize: '9px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                            {b.collected_online > 0 ? `Online ${fmtAmt(b.collected_online)}` : ''}
-                            {b.collected_online > 0 && b.collected_cash > 0 ? ' · ' : ''}
-                            {b.collected_cash > 0 ? `Cash ${fmtAmt(b.collected_cash)}` : ''}
-                          </div>
+                      {/* Company / Captain share */}
+                      <td style={{ ...amtCell, color: '#059669' }}>{shared ? fmtAmt(b.company_amount) : dash}</td>
+                      <td style={{ ...amtCell, color: '#0369a1' }}>{shared ? fmtAmt(b.captain_amount) : dash}</td>
+                      {/* Taken by company (token + online) / by captain (cash) */}
+                      <td style={{ ...amtCell, color: '#2563eb' }}>{b.collected_online > 0 ? fmtAmt(b.collected_online) : dash}</td>
+                      <td style={{ ...amtCell, color: '#a16207' }}>{b.collected_cash > 0 ? fmtAmt(b.collected_cash) : dash}</td>
+                      {/* Settlement between company and captain */}
+                      <td style={{ ...amtCell }}>
+                        {settle == null ? (
+                          <span style={{ fontSize: '10px', color: '#cbd5e1', fontStyle: 'italic' }}>{b.status === 'CANCELLED' ? '—' : 'Pending'}</span>
+                        ) : settle === 0 ? (
+                          <span style={{ fontSize: '11px', color: '#94a3b8' }}>Settled ₹0.00</span>
+                        ) : (
+                          <>
+                            <div style={{ fontSize: '12px', fontWeight: 800, color: settle > 0 ? '#7c3aed' : '#be185d' }}>{fmtAmt(Math.abs(settle))}</div>
+                            <div style={{ fontSize: '9px', fontWeight: 600, color: settle > 0 ? '#7c3aed' : '#be185d' }}>
+                              {settle > 0 ? 'Company gives captain' : b.is_incity ? 'Cut from captain wallet' : 'Company takes from captain'}
+                            </div>
+                          </>
                         )}
                       </td>
-                      {/* Still to come from the customer */}
-                      <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: '12px', fontWeight: 700, color: b.due_amount > 0 ? '#a16207' : '#cbd5e1' }}>
-                        {b.due_amount > 0 ? fmtAmt(b.due_amount) : '—'}
-                      </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#059669' }}>
-                        {b.status === 'CANCELLED' || !b.paid ? '—' : fmtAmt(b.company_amount)}
-                      </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#0369a1' }}>
-                        {b.status === 'CANCELLED' || !b.paid ? '—' : fmtAmt(b.captain_amount)}
-                      </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                        {b.status === 'CANCELLED' && cancellationKnown && Number(b.cancellation_fee) > 0 ? (
-                          <>
-                            <div style={{ fontSize: '12px', fontWeight: 700, color: '#dc2626' }}>{fmtAmt(b.cancellation_fee)}</div>
-                            <div style={{ fontSize: '9px', color: feeToRecover(b) ? '#dc2626' : '#94a3b8', fontWeight: feeToRecover(b) ? 700 : 400 }}>{cancellationNote(b)}</div>
-                          </>
-                        ) : b.status === 'CANCELLED' && !cancellationKnown ? (
-                          <span style={{ fontSize: '10px', color: '#cbd5e1', fontStyle: 'italic' }}>Not tracked</span>
-                        ) : <span style={{ fontSize: '11px', color: '#cbd5e1' }}>—</span>}
-                      </td>
-                      <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                        <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: st.bg, color: st.color }}>
-                          {b.status}
+                      {/* Final payment status (+ booking status, cancellation charge) */}
+                      <td style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: pay.bg, color: pay.color }}>
+                          {pay.label}
                         </span>
+                        <div style={{ marginTop: '4px' }}>
+                          <span style={{ fontSize: '9px', fontWeight: 700, color: st.color }}>{b.status}</span>
+                        </div>
+                        {b.status === 'CANCELLED' && cancellationKnown && Number(b.cancellation_fee) > 0 && (
+                          <div style={{ fontSize: '9px', marginTop: '2px', color: feeToRecover(b) ? '#dc2626' : '#94a3b8', fontWeight: feeToRecover(b) ? 700 : 400 }}>
+                            Charge {fmtAmt(b.cancellation_fee)} · {cancellationNote(b)}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
